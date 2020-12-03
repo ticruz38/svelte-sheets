@@ -1,5 +1,5 @@
 {
-  "name": "svelte-sheet",
+  "name": "svelte-sheets",
   "version": "0.0.1",
   "description": "Run your excel sheet in the browser!",
   "main": "index.ts",
@@ -13,7 +13,7 @@
     "svelte",
     "xlsx",
     "excel",
-    "sheets"
+    "spreadsheets"
   ],
   "author": "Thibaut Duchêne",
   "license": "MIT",
