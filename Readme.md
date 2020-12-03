@@ -1,4 +1,4 @@
-# Svelte Sheet
+# Svelte Spreadsheets
 Ultra fast excel sheets in the browser. Hugely inspired by JExcel, built on XLSX shoulders.
 
 ### Motivation

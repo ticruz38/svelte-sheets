@@ -16,7 +16,7 @@
 
   $: config = {
     ...defaultconfig,
-    ...options,
+    ...(options || {}),
   };
   // Containers
   let history = [];
