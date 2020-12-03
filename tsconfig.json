@@ -1,0 +1,14 @@
+{
+  // "include": ["src/**/*", "codegen.d.ts"],
+  "exclude": ["node_modules/*", "dist"],
+  "compilerOptions": {
+    "sourceMap": true,
+    "target": "es6",
+    "module": "es6",
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    // "checkJs": true,
+    // "allowJs": true,
+    "esModuleInterop": true
+  }
+}
