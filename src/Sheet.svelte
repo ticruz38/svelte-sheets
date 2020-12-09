@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import XLSX from "xlsx";
-  import { defaultconfig } from "./src/defaultconfig";
-  import type { Config } from "./src/defaultconfig";
-  import { computeStyles, GetColSpan, GetRowSpan } from "./src/utilities";
+  import { defaultconfig } from "./defaultconfig";
+  import type { Config } from "./defaultconfig";
+  import { computeStyles, GetColSpan, GetRowSpan } from "./utilities";
 
   export let data: (string | number | boolean)[][] = [];
   export let columns: any[] = [];
@@ -364,7 +364,7 @@
   tabindex="1">
   <div
     class="jexcel_content"
-    style={config.tableWidth ? 'overflow-x: auto; width: ' + config.tableWidth + ';' : '' + config.tableHeight ? 'overflow-y: auto; height: ' + config.tableHeight + ';' : ''}
+    style={config.tableWidth ? 'overflow-x: auto; width: ' + config.tableWidth + ';' : '' + config.tableHeight ? 'overflow-y: auto; max-height: ' + config.tableHeight + ';' : ''}
     bind:this={viewport}
     bind:offsetWidth={viewport_height}
     on:scroll={handle_scroll}>

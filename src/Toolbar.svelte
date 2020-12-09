@@ -1,7 +1,6 @@
 <script lang="ts">
-  import Header from "src/components/Header.svelte";
   import XLSX from "xlsx";
-  import { convert } from "./src/convert";
+  import { convert } from "./convert";
 
   export let sheetNames;
   export let sheets = [];

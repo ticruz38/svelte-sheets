@@ -87,6 +87,7 @@ Many of this options will be implemented later, so expect most of them to be unr
 ### Things yet to be done
 
 - Make a svelte REPL demonstrating the library
+- Undo/Redo (mapping keyboard shortcuts)
 - Resizing
 - Filtering
 - Copy/Paste

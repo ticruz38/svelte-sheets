@@ -2,7 +2,8 @@
   "name": "svelte-sheets",
   "version": "0.0.2",
   "description": "Run your excel sheet in the browser!",
-  "main": "index.ts",
+  "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
@@ -18,23 +19,16 @@
   "author": "Thibaut Duchêne",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^16.0.0",
-    "@rollup/plugin-node-resolve": "^10.0.0",
-    "rollup": "^2.3.4",
-    "rollup-plugin-css-only": "^3.0.0",
-    "rollup-plugin-livereload": "^2.0.0",
-    "rollup-plugin-svelte": "^7.0.0",
-    "rollup-plugin-terser": "^7.0.0",
     "svelte": "^3.0.0",
     "svelte-check": "^1.0.0",
     "svelte-preprocess": "^4.0.0",
-    "@rollup/plugin-typescript": "^6.0.0",
-    "typescript": "^3.9.3",
+    "svelte-types-writer": "^1.0.3",
     "tslib": "^2.0.0",
-    "@tsconfig/svelte": "^1.0.0"
+    "typescript": "^3.9.3"
   },
   "dependencies": {
-    "svelte": "^3.30.1",
+    "b64-to-blob": "^1.2.19",
+    "svelte": "^3.31.0",
     "typescript": "^4.1.2",
     "xlsx": "^0.16.9"
   }

@@ -146,14 +146,25 @@ export function convert(workbook) {
         }
       }
     }
-    var numColumns = spreadsheet.columns;
+    // ensure we have enough columns to display all the data
+    const maxColumns = spreadsheet.data.reduce(
+      (acc, cur) => (cur.length > acc ? (acc = cur.length) : acc),
+      0
+    );
+    spreadsheet.columns = spreadsheet.columns.slice(0, maxColumns);
+    for (var i = 0; i <= maxColumns; i++) {
+      if (!spreadsheet.columns[i]) {
+        spreadsheet.columns[i] = { width: "100px" };
+      }
+    }
+
     for (var j = 0; j <= max_y; j++) {
       for (var i = 0; i <= max_x; i++) {
         if (!spreadsheet.data[j]) {
           spreadsheet.data[j] = [];
         }
         if (!spreadsheet.data[j][i]) {
-          if (numColumns < i) {
+          if (maxColumns < i) {
             spreadsheet.data[j][i] = "";
           }
         }
