@@ -15,7 +15,7 @@ Following Rich Harris talk about reactivity, I decided to take the idea behind J
 
 ```html
 <script>
-  import SvelteSheet from "svelte-sheets/Sheet.svelte";
+  import { Sheet } from "svelte-sheets";
 
   let style = {
     "A1": "background-color: red"
@@ -24,12 +24,12 @@ Following Rich Harris talk about reactivity, I decided to take the idea behind J
     "A1": [5, 0] // 5 horizontally merged cell (colspan), 0 vertically merged cells (rowspan)
   }
   let columns = [
-    {width: 50}
+    {width: "50px"}
   ]
   let data = [["mazda", "renault", "volkswagen"]["10000km", "20000km", "300000km"]];
 </script>
 
-<SvelteSheet
+<Sheet
     {style}
     {mergeCells}
     {columns}
@@ -41,8 +41,7 @@ Alternatively you can use the toolbar to open any kind of excel files
 
 ```html
 <script>
-  import SvelteSheet from "svelte-sheets/Sheet.svelte";
-  import Toolbar from "svelte-sheets/Toolbar.svelte";
+  import { Sheet, Toolbar } from "svelte-sheets";
 
   let sheetNames;
   let sheets;
@@ -65,7 +64,7 @@ Alternatively you can use the toolbar to open any kind of excel files
   bind:sheets
   bind:active
 />
-<SvelteSheet
+<Sheet
     {style}
     {mergeCells}
     {columns}
@@ -78,7 +77,7 @@ You can configure the table such as height and many other things with the option
 ```js
 let options = {
   tableHeight: "90vh",
-  defaultColWidth: 50
+  defaultColWidth: "50px"
 }
 ```
 
