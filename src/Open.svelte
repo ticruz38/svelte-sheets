@@ -2,6 +2,7 @@
   import XLSX from "xlsx";
   import { convert } from "./convert";
 
+  export let onload: (sheets: any[], sheetNames: any[]) => void;
   export let sheetNames;
   export let sheets = [];
   export let open: any;
@@ -23,6 +24,7 @@
       });
       sheets = convert(wb);
       sheetNames = sheets.map((s) => s.sheetName);
+      onload && onload(sheets, sheetNames);
     };
   }
 </script>
