@@ -7,6 +7,7 @@
 
   export let data: (string | number | boolean)[][] = [];
   export let columns: any[] = [];
+  export let rows: any[] = [];
   export let mergeCells: Record<string, number[]> = {};
   // export let rows: Record<string, any> = [];
   export let style: { [cellIndex: string]: string } = {};
@@ -41,70 +42,106 @@
   // })();
 
   // implement virtual list
-  export let start = 0;
-  export let end = 0;
+  export let startY = 0;
+  export let startX = 0;
+  export let endY = 0;
+  export let endX = 0;
   // virtual list state
   let height_map = [];
-  let els;
+  let width_map = [];
+  let rowElements;
+  let colElements;
   let viewport;
   let contents;
   let viewport_height = 0;
-  let visible: { i: number; data: (string | number | boolean)[] }[];
+  let viewport_width = 0;
+  let visibleY: { i: number; data: (string | number | boolean)[] }[];
+  let visibleX: { i: number; data: (string | number | boolean)[] }[];
   let mounted;
   let top = 0;
-  let top_buffer = 3000;
-  let bottom_buffer = 1000;
+  let left = 0;
+  let top_buffer = 0;
+  let bottom_buffer = 0;
   let bottom = 0;
+  let right = 0;
   let average_height;
+  let average_width;
 
-  $: visible = data.slice(start, end).map((data, i) => {
-    return { i: i + start, data };
+  $: visibleY = data.slice(startY, endY).map((data, i) => {
+    return { i: i + startY, data };
+  });
+
+  $: visibleX = columns.slice(startX, endX).map((data, i) => {
+    return { i: i + startX, data };
   });
 
   // whenever `items` changes, invalidate the current heightmap
-  $: if (mounted) refresh(data, viewport_height);
+  $: if (mounted) refresh(data, viewport_height, viewport_width);
 
-  async function refresh(data, viewport_height) {
-    const { scrollTop } = viewport;
+  $: console.log(columns);
+
+  async function refresh(data, viewport_height, viewport_width) {
+    console.log("refresh", viewport_height, viewport_width);
+    const { scrollTop, scrollLeft } = viewport;
     await tick(); // wait until the DOM is up to date
-    let content_height = top - scrollTop - bottom_buffer;
-    let i = start;
-    while (
-      content_height < viewport_height &&
-      i <
-        (25000 / columns.length > data.length
-          ? data.length
-          : 25000 / columns.length)
-    ) {
-      let row = els[i - start];
+    let content_height = top - scrollTop;
+    let content_width = left - scrollLeft;
+    // vertical
+    let y = startY;
+    while (content_height < viewport_height && y < data.length) {
+      let row = rowElements[y - startY];
       if (!row) {
-        end = i + 1;
+        endY = y + 1;
         await tick(); // render the newly visible row
-        row = els[i - start];
+        row = rowElements[y - startY];
       }
-      const row_height = (height_map[i] = row.offsetHeight);
+      const row_height = (height_map[y] = Number(
+        rows[y]?.height?.replace("px", "") || 22
+      ));
       content_height += row_height;
-      i += 1;
+      y += 1;
     }
-    end = i;
-    const remaining = data.length - end;
-    average_height = (top + content_height) / end;
+    endY = y;
+    let remaining = data.length - endY;
+    average_height = (top + content_height) / endY;
     bottom = remaining * average_height;
     height_map.length = data.length;
+    // horizontal
+    let x = startX;
+    while (content_width < viewport_width && x < columns.length) {
+      let col = colElements[x - startX];
+      if (!col) {
+        endX = x + 1;
+        await tick(); // render the newly visible col
+        col = colElements[x - startX];
+      }
+      const col_width = (width_map[x] = Number(
+        typeof columns[x]?.width == "string"
+          ? columns[x]?.width.replace("px", "")
+          : columns[x]?.width || config.defaultColWidth
+      ));
+      content_width += col_width;
+      x += 1;
+    }
+    endX = x;
+    let remains = columns.length - endX;
+    average_width = (left + content_width) / endX;
+    right = remains * average_width;
+    width_map.length = columns.length;
   }
 
   async function handle_scroll() {
     const { scrollTop } = viewport;
-    const old_start = start;
-    for (let v = 0; v < els.length; v += 1) {
-      height_map[start + v] = els[v].offsetHeight;
+    const old_start = startY;
+    for (let v = 0; v < rowElements.length; v += 1) {
+      height_map[startY + v] = rowElements[v].offsetHeight;
     }
     let i = 0;
     let x = 0;
     while (i < data.length) {
       const row_height = height_map[i] || average_height;
       if (x + row_height > scrollTop - top_buffer) {
-        start = i;
+        startY = i;
         top = x;
         break;
       }
@@ -116,20 +153,20 @@
       i += 1;
       if (x > scrollTop + viewport_height + bottom_buffer) break;
     }
-    end = i;
-    const remaining = data.length - end;
-    average_height = x / end;
+    endY = i;
+    const remaining = data.length - endY;
+    average_height = x / endY;
     while (i < data.length) height_map[i++] = average_height;
     bottom = remaining * average_height;
     // prevent jumping if we scrolled up into unknown territory
-    if (start < old_start) {
+    if (startY < old_start) {
       await tick();
       let expected_height = 0;
       let actual_height = 0;
-      for (let i = start; i < old_start; i += 1) {
-        if (els[i - start]) {
+      for (let i = startY; i < old_start; i += 1) {
+        if (rowElements[i - startY]) {
           expected_height += height_map[i];
-          actual_height += els[i - start].offsetHeight;
+          actual_height += rowElements[i - startY].offsetHeight;
         }
       }
       const d = actual_height - expected_height;
@@ -141,7 +178,9 @@
   }
 
   onMount(() => {
-    els = document.getElementsByClassName("virtual-row");
+    rowElements = document.getElementsByClassName("virtual-row");
+    colElements = document.getElementsByClassName("virtual-col");
+    console.log("column elements", rowElements, colElements);
     mounted = true;
     // document.addEventListener("mouseup", jexcel.mouseUpControls);
     // document.addEventListener("mousedown", jexcel.mouseDownControls);
@@ -366,13 +405,14 @@
     class="jexcel_content"
     style={config.tableWidth ? 'overflow-x: auto; width: ' + config.tableWidth + ';' : '' + config.tableHeight ? 'overflow-y: auto; max-height: ' + config.tableHeight + ';' : ''}
     bind:this={viewport}
-    bind:offsetWidth={viewport_height}
+    bind:offsetHeight={viewport_height}
+    bind:offsetWidth={viewport_width}
     on:scroll={handle_scroll}>
     <table
       cellpadding="0"
       cellspacing="0"
       unselectable={true}
-      style="padding-top: {top}px; padding-bottom: {bottom}px"
+      style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
       bind:this={contents}>
       <colgroup>
         <col width={50} />
@@ -386,11 +426,12 @@
         class="resizable">
         <tr>
           <td class="jexcel_selectall virtual-col" />
-          {#each columns as col, i}
+          {#each visibleX as col, i}
             <td
               on:click={(_) => (selection = [[i, 0], [i, data.length]])}
               data-x={i}
               title={columns[i].title || ''}
+              class="virtual-col"
               class:selected={selection && i >= selection[0][0] && selection[1][0] >= i}
               class:hidden={columns[i].type == 'hidden'}
               style={`text-align: ${columns[i].align || config.defaultColAlign};`}>
@@ -399,38 +440,35 @@
           {/each}
         </tr>
       </thead>
-      <tbody
-        class="draggable"
-        bind:this={viewport}
-        bind:offsetWidth={viewport_height}
-        on:scroll={handle_scroll}>
-        {#each visible as r}
+      <tbody class="draggable" bind:this={viewport} on:scroll={handle_scroll}>
+        {#each visibleY as r}
           <tr
             class="virtual-row"
             data-y={r.i}
+            style={`height: ${rows[r.i] || '22px'}`}
             class:selected={selection && r.i >= selection[0][1] && selection[1][1] >= r.i}>
             <td data-y={r.i} class="jexcel_row">{r.i + 1}</td>
-            {#each r.data as cell, c}
+            {#each visibleX as x, i}
               <td
                 tabindex="-1"
-                data-x={c}
+                data-x={x.i}
                 data-y={r.i}
-                data-merged={GetColSpan(mergeCells, c, r.i) || GetRowSpan(mergeCells, c, r.i)}
-                colspan={GetColSpan(mergeCells, c, r.i)}
-                on:dblclick={(_) => (edition = [c, r.i])}
-                class:highlight={selection && r.i >= selection[0][1] && selection[1][1] >= r.i && c >= selection[0][0] && selection[1][0] >= c}
-                class:highlight-top={selection && r.i == selection[0][1] && c >= selection[0][0] && selection[1][0] >= c}
-                class:highlight-bottom={selection && r.i == selection[1][1] && c >= selection[0][0] && selection[1][0] >= c}
-                class:highlight-left={selection && c == selection[0][0] && r.i >= selection[0][1] && selection[1][1] >= r.i}
-                class:highlight-right={selection && c == selection[1][0] && r.i >= selection[0][1] && selection[1][1] >= r.i}
-                class:readonly={columns[c] && columns[c].readOnly}
-                style={computeStyles(c, r.i, style, config, cell, data[r.i][c + 1])}>
-                {#if String(edition) == String([c, r.i])}
+                data-merged={GetColSpan(mergeCells, x.i, r.i) || GetRowSpan(mergeCells, x.i, r.i)}
+                colspan={GetColSpan(mergeCells, x.i, r.i)}
+                on:dblclick={(_) => (edition = [x.i, r.i])}
+                class:highlight={selection && r.i >= selection[0][1] && selection[1][1] >= r.i && x.i >= selection[0][0] && selection[1][0] >= x.i}
+                class:highlight-top={selection && r.i == selection[0][1] && x.i >= selection[0][0] && selection[1][0] >= x.i}
+                class:highlight-bottom={selection && r.i == selection[1][1] && x.i >= selection[0][0] && selection[1][0] >= x.i}
+                class:highlight-left={selection && x.i == selection[0][0] && r.i >= selection[0][1] && selection[1][1] >= r.i}
+                class:highlight-right={selection && x.i == selection[1][0] && r.i >= selection[0][1] && selection[1][1] >= r.i}
+                class:readonly={columns[x.i] && columns[x.i].readOnly}
+                style={computeStyles(x.i, r.i, rows[r.i], style, config, data[r.i][x.i], data[r.i][x.i + 1])}>
+                {#if String(edition) == String([x.i, r.i])}
                   <input
                     autofocus
-                    bind:value={cell}
-                    style={`width: ${columns[c].width || config.defaultColWidth}px; height: 22px; min-height: 22px;`} />
-                {:else}{cell || ''}{/if}
+                    bind:value={data[r.i][x.i]}
+                    style={`width: ${columns[x.i].width || config.defaultColWidth}px; height: 22px; min-height: 22px;`} />
+                {:else}{data[r.i][x.i] || ''}{/if}
               </td>
             {/each}
           </tr>

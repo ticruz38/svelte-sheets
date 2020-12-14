@@ -1,17 +1,19 @@
 import XLSX from "xlsx";
-import btob from "b64-to-blob"
+import btob from "b64-to-blob";
 
-export const computeStyles = (c, r, style, options, value, nextValue) => {
+export const computeStyles = (c, r, row, style, options, value, nextValue) => {
+  // ${
+  //   c.wordWrap != false &&
+  //   (options.wordWrap || c.wordwrap || value?.length > 200)
+  //     ? "white-space: pre-wrap;"
+  //     : ""
+  // }
   return `text-align: ${c.align || "center"}; 
-  ${r && r.height ? "height: " + r.height : "22px; "}
-  ${
-    c.wordWrap != false &&
-    (options.wordWrap || c.wordwrap || value?.length > 200)
-      ? "white-space: pre-wrap;"
-      : ""
-  }
+  ${row && row.height ? "height: " + row.height : "height: 22px"};
   overflow: ${nextValue && nextValue.length ? "hidden" : "visible"};
-  ${style[XLSX.utils.encode_cell({ c, r })]}
+  ${style[XLSX.utils.encode_cell({ c, r })]};
+  ${style}
+  ${XLSX.utils.encode_cell({ c, r })}
   `;
 };
 
