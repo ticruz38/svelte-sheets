@@ -1,6 +1,6 @@
 {
   "name": "svelte-sheets",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Run your excel sheet in the browser!",
   "main": "index.js",
   "types": "index.d.ts",
