@@ -60,8 +60,10 @@
   let mounted;
   let top = 0;
   let left = 0;
-  let top_buffer = 0;
-  let bottom_buffer = 0;
+  let top_buffer = 500;
+  let bottom_buffer = 1000;
+  let left_buffer = 500;
+  let right_buffer = 1000;
   let bottom = 0;
   let right = 0;
   let average_height;
@@ -78,14 +80,25 @@
   // whenever `items` changes, invalidate the current heightmap
   $: if (mounted) refresh(data, viewport_height, viewport_width);
 
-  $: console.log(columns);
+  function getColumnsWidth(i: number) {
+    return Number(
+      typeof columns[i]?.width == "string"
+        ? columns[i]?.width.replace("px", "")
+        : columns[i]?.width || config.defaultColWidth
+    );
+  }
+
+  function getRowHeight(i: number) {
+    return Number(
+      rows[i]?.height?.replace("px", "") || 24 // consider adding a config.defaultRowHeight
+    );
+  }
 
   async function refresh(data, viewport_height, viewport_width) {
-    console.log("refresh", viewport_height, viewport_width);
     const { scrollTop, scrollLeft } = viewport;
     await tick(); // wait until the DOM is up to date
-    let content_height = top - scrollTop;
-    let content_width = left - scrollLeft;
+    let content_height = top - scrollTop - bottom_buffer;
+    let content_width = left - scrollLeft - left_buffer;
     // vertical
     let y = startY;
     while (content_height < viewport_height && y < data.length) {
@@ -95,9 +108,7 @@
         await tick(); // render the newly visible row
         row = rowElements[y - startY];
       }
-      const row_height = (height_map[y] = Number(
-        rows[y]?.height?.replace("px", "") || 22
-      ));
+      const row_height = (height_map[y] = getRowHeight(y));
       content_height += row_height;
       y += 1;
     }
@@ -115,11 +126,7 @@
         await tick(); // render the newly visible col
         col = colElements[x - startX];
       }
-      const col_width = (width_map[x] = Number(
-        typeof columns[x]?.width == "string"
-          ? columns[x]?.width.replace("px", "")
-          : columns[x]?.width || config.defaultColWidth
-      ));
+      const col_width = (width_map[x] = getColumnsWidth(x));
       content_width += col_width;
       x += 1;
     }
@@ -130,57 +137,81 @@
     width_map.length = columns.length;
   }
 
-  async function handle_scroll() {
-    const { scrollTop } = viewport;
-    const old_start = startY;
-    for (let v = 0; v < rowElements.length; v += 1) {
-      height_map[startY + v] = rowElements[v].offsetHeight;
+  // $: scrollLeft = viewport?.scrollLeft;
+  // $: scrollTop = viewport?.scrollTop;
+  let scrollLeft;
+  let scrollTop;
+
+  $: (function scrollX() {
+    if (!scrollLeft || !colElements) return;
+    // if (!scrollLeft) ;
+    // horizontal scrolling
+    for (let v = 0; v < colElements.length; v += 1) {
+      width_map[startX + v] = getColumnsWidth(startX + v);
     }
-    let i = 0;
+    let c = 0;
     let x = 0;
-    while (i < data.length) {
-      const row_height = height_map[i] || average_height;
-      if (x + row_height > scrollTop - top_buffer) {
-        startY = i;
-        top = x;
+    while (c < columns.length) {
+      const col_width = width_map[c] || average_width;
+      if (x + col_width > scrollLeft - left_buffer) {
+        startX = c;
+        left = x;
         break;
       }
-      x += row_height;
-      i += 1;
+      x += col_width;
+      c += 1;
     }
-    while (i < data.length) {
-      x += height_map[i] || average_height;
-      i += 1;
-      if (x > scrollTop + viewport_height + bottom_buffer) break;
+    while (c < columns.length) {
+      x += width_map[c] || average_width;
+      c += 1;
+      if (x > scrollLeft + viewport_width + right_buffer) break;
     }
-    endY = i;
-    const remaining = data.length - endY;
-    average_height = x / endY;
-    while (i < data.length) height_map[i++] = average_height;
-    bottom = remaining * average_height;
-    // prevent jumping if we scrolled up into unknown territory
-    if (startY < old_start) {
-      await tick();
-      let expected_height = 0;
-      let actual_height = 0;
-      for (let i = startY; i < old_start; i += 1) {
-        if (rowElements[i - startY]) {
-          expected_height += height_map[i];
-          actual_height += rowElements[i - startY].offsetHeight;
-        }
+    endX = c;
+    const remainingX = columns.length - endX;
+    average_width = x / endX;
+    while (c < columns.length) width_map[c++] = average_width;
+    right = remainingX * average_width;
+  })();
+
+  $: (function scrollY() {
+    if (!scrollTop || !rowElements) return;
+
+    // vertical scrolling
+    for (let v = 0; v < rowElements.length; v += 1) {
+      height_map[startY + v] = getRowHeight(startY + v);
+    }
+    let r = 0;
+    let y = 0;
+    while (r < data.length) {
+      const row_height = height_map[r] || average_height;
+      if (y + row_height > scrollTop - top_buffer) {
+        startY = r;
+        top = y;
+        break;
       }
-      const d = actual_height - expected_height;
-      viewport.scrollTo(0, scrollTop + d);
+      y += row_height;
+      r += 1;
     }
-    // TODO if we overestimated the space these
-    // rows would occupy we may need to add some
-    // more. maybe we can just call handle_scroll again?
+    while (r < data.length) {
+      y += height_map[r] || average_height;
+      r += 1;
+      if (y > scrollTop + viewport_height + bottom_buffer) break;
+    }
+    endY = r;
+    const remaining = data.length - endY;
+    average_height = y / endY;
+    while (r < data.length) height_map[r++] = average_height;
+    bottom = remaining * average_height;
+  })();
+
+  function handle_scroll(e) {
+    scrollTop = viewport.scrollTop;
+    scrollLeft = viewport.scrollLeft;
   }
 
   onMount(() => {
     rowElements = document.getElementsByClassName("virtual-row");
     colElements = document.getElementsByClassName("virtual-col");
-    console.log("column elements", rowElements, colElements);
     mounted = true;
     // document.addEventListener("mouseup", jexcel.mouseUpControls);
     // document.addEventListener("mousedown", jexcel.mouseDownControls);
@@ -379,13 +410,27 @@
     box-sizing: border-box;
     line-height: 1em;
   }
-  tbody > tr > td:first-child {
+  /* tbody > tr > td:first-child {
     position: relative;
     background-color: #f3f3f3;
     text-align: center;
-  }
+  } */
   tr.selected > td:first-child {
     background-color: #dcdcdc;
+  }
+
+  div.col-resize {
+    position: absolute;
+    top: 0;
+    cursor: col-resize;
+    width: 1rem;
+    height: 100%;
+  }
+  div.col-resize.right {
+    right: 0;
+  }
+  div.col-resize.left {
+    left: 0;
   }
   input {
     background: none;
@@ -415,9 +460,11 @@
       style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
       bind:this={contents}>
       <colgroup>
-        <col width={50} />
-        {#each columns as col, i}
-          <col width={columns[i].width || config.defaultColWidth} />
+        {#each visibleX as v}
+          {#if v.i == 0}
+            <col width={50} />
+          {/if}
+          <col width={getColumnsWidth(v.i)} />
         {/each}
       </colgroup>
       <thead
@@ -425,17 +472,21 @@
         class:resizable={config.columnResize || config.rowResize}
         class="resizable">
         <tr>
-          <td class="jexcel_selectall virtual-col" />
-          {#each visibleX as col, i}
+          {#each visibleX as c, i}
+            {#if c.i == 0}
+              <td class="jexcel_selectall virtual-col" />
+            {/if}
             <td
-              on:click={(_) => (selection = [[i, 0], [i, data.length]])}
-              data-x={i}
-              title={columns[i].title || ''}
+              on:click={(_) => (selection = [[c.i, 0], [c.i, data.length]])}
+              data-x={c.i}
+              title={columns[c.i].title || ''}
               class="virtual-col"
-              class:selected={selection && i >= selection[0][0] && selection[1][0] >= i}
-              class:hidden={columns[i].type == 'hidden'}
-              style={`text-align: ${columns[i].align || config.defaultColAlign};`}>
-              {columns[i].title || XLSX.utils.encode_col(i)}
+              class:selected={selection && c.i >= selection[0][0] && selection[1][0] >= c.i}
+              class:hidden={columns[c.i].type == 'hidden'}
+              style={`text-align: ${columns[c.i].align || config.defaultColAlign};`}>
+              {columns[c.i].title || XLSX.utils.encode_col(c.i)}
+              <div class="col-resize left" />
+              <div class="col-resize right" />
             </td>
           {/each}
         </tr>
@@ -447,8 +498,15 @@
             data-y={r.i}
             style={`height: ${rows[r.i] || '22px'}`}
             class:selected={selection && r.i >= selection[0][1] && selection[1][1] >= r.i}>
-            <td data-y={r.i} class="jexcel_row">{r.i + 1}</td>
             {#each visibleX as x, i}
+              {#if x.i == 0}
+                <td
+                  data-y={r.i}
+                  style="background-color: #f3f3f3; text-align: center;"
+                  class="jexcel_row">
+                  {r.i + 1}
+                </td>
+              {/if}
               <td
                 tabindex="-1"
                 data-x={x.i}

@@ -9,11 +9,9 @@ export const computeStyles = (c, r, row, style, options, value, nextValue) => {
   //     : ""
   // }
   return `text-align: ${c.align || "center"}; 
-  ${row && row.height ? "height: " + row.height : "height: 22px"};
+  ${row && row.height ? "height: " + row.height : "height: 24px"};
   overflow: ${nextValue && nextValue.length ? "hidden" : "visible"};
   ${style[XLSX.utils.encode_cell({ c, r })]};
-  ${style}
-  ${XLSX.utils.encode_cell({ c, r })}
   `;
 };
 
