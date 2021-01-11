@@ -1,20 +1,42 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import XLSX from "xlsx";
-  import { defaultconfig } from "./defaultconfig";
+  import { resizable } from "./actions";
+  import { draggable } from "./actions/draggable";
   import type { Config } from "./defaultconfig";
-  import { computeStyles, GetColSpan, GetRowSpan } from "./utilities";
+  import { defaultconfig } from "./defaultconfig";
+  import hotkeys from "hotkeys-js";
+  import Menu from "./Menu.svelte";
+  import {
+    computeStyles,
+    GetColSpan,
+    GetRowSpan,
+    mergeSelectExtends,
+  } from "./utilities";
 
   export let data: (string | number | boolean)[][] = [];
   export let columns: any[] = [];
+  let xcolumns: any[] = [];
   export let rows: any[] = [];
+  let xrows: any[] = [];
   export let mergeCells: Record<string, number[]> = {};
   // export let rows: Record<string, any> = [];
   export let style: { [cellIndex: string]: string } = {};
-  export let selection: [number[], number[]] = null; // either null, or coordinates [[x, y], [x, y]]
+  export let selected: [string, string] = null; // either null, or coordinates [[x, y], [x, y]]
+  export let extended: [string, string] = null;
+  export let clipboard: any;
 
   export let options: Config;
 
+  const encode = ({ c, r }) =>
+    XLSX.utils.encode_cell({ c: Number(c), r: Number(r) });
+  const decode = XLSX.utils.decode_cell;
+  $: decoded = selected
+    ? [decode(selected[0]), decode(selected[1])]
+    : [
+        { c: 0, r: 0 },
+        { c: 0, r: 0 },
+      ];
   $: config = {
     ...defaultconfig,
     ...(options || {}),
@@ -24,7 +46,9 @@
   let highlighted = [];
 
   // Internal controllers
-  let keydown = false;
+  let cmdz = false;
+  let selection = false;
+  let extension = false;
   let cursor = null;
   let historyIndex = 0;
   let ignoreEvents = false;
@@ -33,7 +57,7 @@
   let hashString = null;
   let resizing = null;
   let dragging = null;
-  const keypressed = {};
+  let keypressed = {};
 
   // $: ((_) => {
   //   history = history.slice(0, historyIndex);
@@ -69,12 +93,20 @@
   let average_height;
   let average_width;
 
-  $: visibleY = data.slice(startY, endY).map((data, i) => {
-    return { i: i + startY, data };
+  $: xrows =
+    endY > data.length ? Array.from({ length: endY - data.length }) : [];
+
+  $: xcolumns =
+    endX > columns.length
+      ? Array.from({ length: endX - columns.length }, (v, i) => ({}))
+      : [];
+
+  $: visibleY = [...data, ...xrows].slice(startY, endY).map((d, i) => {
+    return { i: i + startY, data: d };
   });
 
-  $: visibleX = columns.slice(startX, endX).map((data, i) => {
-    return { i: i + startX, data };
+  $: visibleX = [...columns, ...xcolumns].slice(startX, endX).map((d, i) => {
+    return { i: i + startX, data: d };
   });
 
   // whenever `items` changes, invalidate the current heightmap
@@ -89,9 +121,39 @@
   }
 
   function getRowHeight(i: number) {
-    return Number(
-      rows[i]?.height?.replace("px", "") || 24 // consider adding a config.defaultRowHeight
-    );
+    try {
+      const height = Number(
+        typeof rows[i]?.height == "string"
+          ? rows[i]?.height?.replace("px", "")
+          : rows[i]?.height || 24 // consider adding a config.defaultRowHeight
+      );
+      return height > 24 ? height : 24;
+    } catch (e) {
+      return 24;
+    }
+  }
+
+  function onInputChange(value, row, column) {
+    if (row.i > data.length - 1) {
+      data = [
+        ...data,
+        ...Array.from({ length: row.i - data.length + 1 }, (v, i) => {
+          if (i == row.i) {
+            return Array.from({ length: columns.length }, (_, i) => {
+              if (i == column.i) {
+                return value;
+              } else {
+                return "";
+              }
+            });
+          } else {
+            return Array.from({ length: columns.length }, (_) => "");
+          }
+        }),
+      ];
+    } else {
+      data[row.i][column.i] = value;
+    }
   }
 
   async function refresh(data, viewport_height, viewport_width) {
@@ -101,7 +163,7 @@
     let content_width = left - scrollLeft - left_buffer;
     // vertical
     let y = startY;
-    while (content_height < viewport_height && y < data.length) {
+    while (content_height < viewport_height) {
       let row = rowElements[y - startY];
       if (!row) {
         endY = y + 1;
@@ -119,7 +181,7 @@
     height_map.length = data.length;
     // horizontal
     let x = startX;
-    while (content_width < viewport_width && x < columns.length) {
+    while (content_width < viewport_width) {
       let col = colElements[x - startX];
       if (!col) {
         endX = x + 1;
@@ -151,7 +213,7 @@
     }
     let c = 0;
     let x = 0;
-    while (c < columns.length) {
+    while (true) {
       const col_width = width_map[c] || average_width;
       if (x + col_width > scrollLeft - left_buffer) {
         startX = c;
@@ -161,16 +223,19 @@
       x += col_width;
       c += 1;
     }
-    while (c < columns.length) {
+    while (true) {
       x += width_map[c] || average_width;
       c += 1;
       if (x > scrollLeft + viewport_width + right_buffer) break;
     }
     endX = c;
-    const remainingX = columns.length - endX;
+    const remaining =
+      endX > columns.length
+        ? (viewport_width + right_buffer) / 24
+        : columns.length - endX;
     average_width = x / endX;
-    while (c < columns.length) width_map[c++] = average_width;
-    right = remainingX * average_width;
+    // while (c < columns.length) width_map[c++] = average_width;
+    right = remaining * average_width;
   })();
 
   $: (function scrollY() {
@@ -182,7 +247,7 @@
     }
     let r = 0;
     let y = 0;
-    while (r < data.length) {
+    while (true) {
       const row_height = height_map[r] || average_height;
       if (y + row_height > scrollTop - top_buffer) {
         startY = r;
@@ -192,15 +257,18 @@
       y += row_height;
       r += 1;
     }
-    while (r < data.length) {
+    while (true) {
       y += height_map[r] || average_height;
       r += 1;
       if (y > scrollTop + viewport_height + bottom_buffer) break;
     }
     endY = r;
-    const remaining = data.length - endY;
+    const remaining =
+      endY > data.length
+        ? (viewport_height + bottom_buffer) / 24
+        : data.length - endY;
     average_height = y / endY;
-    while (r < data.length) height_map[r++] = average_height;
+    // while (r < data.length) height_map[r++] = average_height;
     bottom = remaining * average_height;
   })();
 
@@ -229,80 +297,159 @@
   });
 
   function onMouseDown(e) {
+    if (e.target.id == "square") {
+      extension = true;
+      selection = false;
+      return;
+    }
     if (!e.target.dataset.x) return;
     edition = null;
-    keydown = true;
-    selection = [
-      [e.target.dataset.x, e.target.dataset.y],
-      [e.target.dataset.x, e.target.dataset.y],
+    selection = true;
+    selected = [
+      encode({ c: e.target.dataset.x, r: e.target.dataset.y }),
+      encode({ c: e.target.dataset.x, r: e.target.dataset.y }),
     ];
   }
 
   function onMouseUp(e) {
-    if (!!edition || !selection) return;
-    keydown = false;
-    selection = [
-      selection[0] || [e.target.dataset.x, e.target.dataset.y],
-      [e.target.dataset.x, e.target.dataset.y],
-    ];
+    if (!!selected && !selection && extension) {
+      extension = false;
+      data = mergeSelectExtends(data, selected, extended);
+      selected = extended;
+      return;
+    }
+    if (!!edition || !selected || !selection) return;
+    selection = false;
+    extended = selected;
   }
 
   function onMouseOver(e) {
     if (!!edition) return;
-    if (keydown && !!selection) {
-      selection = [
-        selection[0] || [e.target.dataset.x, e.target.dataset.y],
-        [e.target.dataset.x, e.target.dataset.y],
+    if (!!selected && !selection && extension && e.target?.dataset?.x) {
+      if (
+        // extended is inside selected
+        e.target?.dataset?.x >= topLeft.c &&
+        e.target?.dataset?.x < bottomRight.c &&
+        e.target?.dataset?.y >= topLeft.r &&
+        e.target?.dataset?.y < bottomRight.r
+      ) {
+        extended = [
+          encode(topLeft),
+          encode({
+            c: e.target.dataset.x,
+            r: e.target.dataset.y,
+          }),
+        ];
+        return;
+      }
+      if (
+        e.target?.dataset?.y >= topLeft.r &&
+        e.target?.dataset?.y < bottomRight.r
+      ) {
+        extended = [
+          squareX < 0
+            ? encode({ c: bottomRight.c - 1, r: topLeft.r })
+            : selected[0],
+          encode({ r: decoded[1].r, c: e.target.dataset.x }),
+        ];
+      }
+      if (
+        e.target?.dataset?.x >= topLeft.c &&
+        e.target?.dataset?.x < bottomRight.c
+      ) {
+        extended = [
+          squareY < 0
+            ? encode({ r: bottomRight.r - 1, c: topLeft.c })
+            : selected[0],
+          encode({ r: e.target.dataset.y, c: decoded[1].c }),
+        ];
+      }
+      return;
+    }
+    if (selection && !!selected && e.target?.dataset?.x) {
+      selected = [
+        selected[0] ||
+          encode({
+            c: e.target.dataset.x,
+            r: e.target.dataset.y,
+          }),
+        encode({
+          c: e.target.dataset.x,
+          r: e.target.dataset.y,
+        }),
       ];
     }
   }
 
   function onKeyUp(e) {
+    // on keyup just reinitialize everything
     keypressed[e.keyCode] = false;
   }
 
+  hotkeys("ctrl+z, command+z", function (e) {
+    console.log("undo");
+    e.preventDefault();
+    cmdz = true;
+    if (historyIndex == 0) return;
+    historyIndex = historyIndex - 1;
+    data = JSON.parse(history[historyIndex]);
+  });
+
+  hotkeys("ctrl+shift+z, command+shift+z", function (e) {
+    console.log("redo");
+    e.preventDefault();
+    cmdz = true;
+    if (history.length - 1 == historyIndex) return;
+    historyIndex = historyIndex + 1;
+    data = JSON.parse(history[historyIndex]);
+  });
+
   function onKeyDown(e) {
     keypressed[e.keyCode] = true;
-    // manage history (91 is command, 90 is z, shift is 27)
-    if (keypressed[91] && keypressed[90] && keypressed[27]) {
-      if (history.length == historyIndex) return;
-      historyIndex = historyIndex++;
-      data = history[historyIndex - 1];
-      return;
-    }
-    if (keypressed[91] && keypressed[90]) {
-      if (historyIndex == 1) return;
-      historyIndex = historyIndex--;
-      data = history[historyIndex - 1];
-      return;
-    }
     if (!!edition) {
       if (e.key == "Escape") {
         edition = null;
       }
       return;
     }
-    if (!selection) return;
+    if (!selected) return;
     switch (e.key) {
       case "ArrowDown":
-        var s = [Number(selection[0][0]), Number(selection[0][1]) + 1];
-        selection = [s, s];
+        var s = encode({
+          c: decoded[0].c,
+          r: decoded[0].r + 1,
+        });
+        selected = [s, s];
         break;
       case "ArrowUp":
-        var s = [Number(selection[0][0]), Number(selection[0][1]) - 1];
-        selection = [s, s];
+        var s = encode({
+          c: decoded[0].c,
+          r: decoded[0].r - 1,
+        });
+        selected = [s, s];
         break;
       case "ArrowLeft":
-        var s = [Number(selection[0][0]) - 1, Number(selection[0][1])];
-        selection = [s, s];
+        var s = encode({
+          c: decoded[0].c - 1,
+          r: decoded[0].r,
+        });
+        selected = [s, s];
         break;
       case "ArrowRight":
-        var s = [Number(selection[0][0]) + 1, Number(selection[0][1])];
-        selection = [s, s];
+        var s = encode({
+          c: decoded[0].c + 1,
+          r: decoded[0].r,
+        });
+        selected = [s, s];
         break;
       default:
         break;
     }
+  }
+
+  function showMenu(e) {
+    e.preventDefault();
+    console.log(e);
   }
   // initialize and refactor data
   $: (() => {
@@ -343,6 +490,122 @@
       }
     }
   })();
+  // square selection
+  let tops;
+  let rights;
+  let lefts;
+  let bottoms;
+  let topextend;
+  let rightextend;
+  let leftextend;
+  let bottomextend;
+  let colLine;
+  let rowLine;
+  let square;
+  let squareX;
+  let squareY;
+  let topLeft;
+  let bottomRight;
+  $: {
+    if (extension && extended) {
+      let tl = (selected && decode(extended[0])) || { c: 0, r: 0 };
+      let br = (selected && decode(extended[1])) || { c: 0, r: 0 };
+      topLeft = {
+        c: br.c < tl.c ? br.c : tl.c,
+        r: br.r < tl.r ? br.r : tl.r,
+      };
+      bottomRight = {
+        c: br.c > tl.c ? br.c + 1 : tl.c + 1,
+        r: br.r > tl.r ? br.r + 1 : tl.r + 1,
+      };
+      let top = 28;
+      let right = 51;
+      let bottom = 28;
+      let left = 51;
+      for (let i = 0; i < topLeft.r; i++) {
+        top = top + getRowHeight(i);
+      }
+      for (let i = 0; i < topLeft.c; i++) {
+        left = left + getColumnsWidth(i);
+      }
+      for (let i = 0; i < bottomRight.r; i++) {
+        bottom = bottom + getRowHeight(i);
+      }
+      for (let i = 0; i < bottomRight.c; i++) {
+        right = right + getColumnsWidth(i);
+      }
+      topextend.style = `width: ${
+        right - left
+      }px; left: ${left}px; top: ${top}px`;
+      rightextend.style = `height: ${
+        bottom - top
+      }px; left: ${right}px; top: ${top}px`;
+      bottomextend.style = `width: ${
+        right - left
+      }px; left: ${left}px; top: ${bottom}px`;
+      leftextend.style = `height: ${
+        bottom - top
+      }px; left: ${left}px; top: ${top}px`;
+    }
+  }
+
+  let selectWidth: number;
+  let selectHeight: number;
+
+  $: {
+    if (mounted) {
+      let tl = (selected && decode(selected[0])) || { c: 0, r: 0 };
+      let br = (selected && decode(selected[1])) || { c: 0, r: 0 };
+      topLeft = {
+        c: br.c < tl.c ? br.c : tl.c,
+        r: br.r < tl.r ? br.r : tl.r,
+      };
+      bottomRight = {
+        c: br.c > tl.c ? br.c + 1 : tl.c + 1,
+        r: br.r > tl.r ? br.r + 1 : tl.r + 1,
+      };
+      let top = 28;
+      let right = 51;
+      let bottom = 28;
+      let left = 51;
+      for (let i = 0; i < topLeft.r; i++) {
+        top = top + getRowHeight(i);
+      }
+      for (let i = 0; i < topLeft.c; i++) {
+        left = left + getColumnsWidth(i);
+      }
+      for (let i = 0; i < bottomRight.r; i++) {
+        bottom = bottom + getRowHeight(i);
+      }
+      for (let i = 0; i < bottomRight.c; i++) {
+        right = right + getColumnsWidth(i);
+      }
+      tops.style = `width: ${right - left}px; left: ${left}px; top: ${top}px`;
+      rights.style = `height: ${
+        bottom - top
+      }px; left: ${right}px; top: ${top}px`;
+      bottoms.style = `width: ${
+        right - left
+      }px; left: ${left}px; top: ${bottom}px`;
+      lefts.style = `height: ${bottom - top}px; left: ${left}px; top: ${top}px`;
+      colLine.style = `width: ${right - left}px; left: ${left}px; top: 28px;`;
+      rowLine.style = `height: ${bottom - top}px; left: 51px; top: ${top}px`;
+      square.style = `left:${right}px; top:${bottom}px`;
+      selectWidth = right - left;
+      selectHeight = bottom - top;
+    }
+  }
+  // history logic
+  let oldData = JSON.stringify(data);
+  $: {
+    if (!cmdz) {
+      console.log("historyPush");
+      history = [...history.slice(0, historyIndex + 1), JSON.stringify(data)];
+      historyIndex = history.length;
+    }
+    cmdz = false;
+  }
+  // $: console.log("history length", history.length);
 </script>
 
 <style>
@@ -352,6 +615,8 @@
     box-sizing: border-box;
     overscroll-behavior: contain;
     outline: none;
+    position: relative;
+    user-select: none;
   }
   table {
     border-collapse: separate;
@@ -366,30 +631,17 @@
     border-right: 1px solid #ccc;
     border-bottom: 1px solid #ccc;
   }
-  tr.selected {
+  /* tr.selected {
     background-color: #b8e7e3;
-  }
-  td.highlight-top {
-    border-top: 1px solid black;
-    box-shadow: -1px -1px #ccc;
-  }
-  td.highlight-bottom {
-    border-bottom: 1px solid black;
-  }
-  td.highlight-left {
-    border-left: 1px solid black;
-    box-shadow: -1px -1px #ccc;
-  }
-  td.highlight-right {
-    border-right: 1px solid black;
-  }
+  } */
   thead > tr > td.selected {
     background-color: #dcdcdc;
+    color: teal;
   }
   thead > tr > td {
     background-color: #f3f3f3;
     padding: 2px;
-    cursor: pointer;
+    cursor: s-resize;
     box-sizing: border-box;
     overflow: hidden;
     position: sticky;
@@ -409,14 +661,35 @@
     white-space: nowrap;
     box-sizing: border-box;
     line-height: 1em;
+    text-align: end;
+    cursor: cell;
   }
+  tbody > tr > td.selected {
+    background-color: #ddd;
+    transition: all 0.1s linear;
+  }
+  tbody > tr > th,
+  thead > tr > th {
+    position: sticky;
+    left: 0;
+    cursor: e-resize;
+    top: auto;
+    background: #f3f3f3;
+    border-top: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    z-index: 10;
+    font-weight: normal;
+  }
+
   /* tbody > tr > td:first-child {
     position: relative;
     background-color: #f3f3f3;
     text-align: center;
   } */
-  tr.selected > td:first-child {
-    background-color: #dcdcdc;
+  tbody > tr > th.selected {
+    background-color: #dcdcdc !important;
+    color: teal;
   }
 
   div.col-resize {
@@ -432,9 +705,58 @@
   div.col-resize.left {
     left: 0;
   }
+
+  div.row-resize {
+    position: absolute;
+    left: 0;
+    cursor: row-resize;
+    width: 100%;
+    height: 0.5rem;
+  }
+
+  div.row-resize.top {
+    top: 0;
+  }
+  div.row-resize.bottom {
+    bottom: 0;
+  }
   input {
     background: none;
     margin: -2px 0;
+  }
+  .absolute {
+    position: absolute;
+    z-index: 10;
+    transition: all 0.1s linear;
+  }
+  .top-select,
+  .bottom-select,
+  .col-line {
+    border-bottom: 2px solid teal;
+  }
+  .left-select,
+  .right-select {
+    border-left: 2px solid teal;
+  }
+
+  .top-extend,
+  .bottom-extend {
+    border-bottom: 2px solid #aaa;
+  }
+  .left-extend,
+  .right-extend {
+    border-left: 2px solid #aaa;
+  }
+  .row-line {
+    border-right: 1px solid teal;
+  }
+  .square {
+    height: 8px;
+    width: 8px;
+    cursor: crosshair;
+    border: 1px solid white;
+    background: teal;
+    transform: translate3D(-40%, -40%, 0);
   }
 </style>
 
@@ -459,11 +781,41 @@
       unselectable={true}
       style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
       bind:this={contents}>
+      <div
+        class="top-extend absolute"
+        class:hidden={!extension}
+        bind:this={topextend} />
+      <div
+        class="bottom-extend absolute"
+        class:hidden={!extension}
+        bind:this={bottomextend} />
+      <div
+        class="left-extend absolute"
+        class:hidden={!extension}
+        bind:this={leftextend} />
+      <div
+        class="right-extend absolute"
+        class:hidden={!extension}
+        bind:this={rightextend} />
+      <div class="top-select absolute" bind:this={tops} />
+      <div class="bottom-select absolute" bind:this={bottoms} />
+      <div class="left-select absolute" bind:this={lefts} />
+      <div class="right-select absolute" bind:this={rights} />
+      <div class="col-line absolute" bind:this={colLine} />
+      <div class="row-line absolute" bind:this={rowLine} />
+      <div
+        use:draggable
+        on:dragging={(e) => {
+          squareX = e.detail.x;
+          squareY = e.detail.y;
+        }}
+        class="square absolute"
+        id="square"
+        bind:this={square} />
+      <Menu show={false} />
       <colgroup>
+        <col width={50} />
         {#each visibleX as v}
-          {#if v.i == 0}
-            <col width={50} />
-          {/if}
           <col width={getColumnsWidth(v.i)} />
         {/each}
       </colgroup>
@@ -472,21 +824,28 @@
         class:resizable={config.columnResize || config.rowResize}
         class="resizable">
         <tr>
+          <th class="jexcel_selectall virtual-col" />
           {#each visibleX as c, i}
-            {#if c.i == 0}
-              <td class="jexcel_selectall virtual-col" />
-            {/if}
             <td
-              on:click={(_) => (selection = [[c.i, 0], [c.i, data.length]])}
+              on:click={(_) => (selected = [encode({
+                    c: c.i,
+                    r: 0,
+                  }), encode({ c: c.i, r: data.length - 1 })])}
               data-x={c.i}
-              title={columns[c.i].title || ''}
+              title={c.data.title || ''}
               class="virtual-col"
-              class:selected={selection && c.i >= selection[0][0] && selection[1][0] >= c.i}
-              class:hidden={columns[c.i].type == 'hidden'}
-              style={`text-align: ${columns[c.i].align || config.defaultColAlign};`}>
-              {columns[c.i].title || XLSX.utils.encode_col(c.i)}
-              <div class="col-resize left" />
-              <div class="col-resize right" />
+              class:selected={selected && c.i >= topLeft.c && bottomRight.c - 1 >= c.i}
+              class:hidden={c.data.type == 'hidden'}
+              style={`text-align: ${c.data.align || config.defaultColAlign};`}>
+              {c.data.title || XLSX.utils.encode_col(c.i)}
+              <div
+                use:resizable
+                on:resizing={(e) => c.i != 0 && (columns[c.i - 1] = { ...(columns[c.i - 1] || {}), width: getColumnsWidth(c.i - 1) + e.detail.x })}
+                class="col-resize left" />
+              <div
+                class="col-resize right"
+                use:resizable
+                on:resizing={(e) => (columns[c.i] = { ...(columns[c.i] || {}), width: getColumnsWidth(c.i) + e.detail.x })} />
             </td>
           {/each}
         </tr>
@@ -496,37 +855,48 @@
           <tr
             class="virtual-row"
             data-y={r.i}
-            style={`height: ${rows[r.i] || '22px'}`}
-            class:selected={selection && r.i >= selection[0][1] && selection[1][1] >= r.i}>
+            style={`height: ${getRowHeight(r.i)}px`}>
+            <th
+              data-y={r.i}
+              class:selected={selected && r.i >= topLeft.r && bottomRight.r - 1 >= r.i}
+              style={`background-color:
+              #f3f3f3;
+              text-align:
+              center;
+              height:
+              ${getRowHeight(r.i)}px;`}
+              on:click={(e) => (selected = [encode({
+                    c: 0,
+                    r: r.i,
+                  }), encode({ c: data[0].length - 1, r: r.i })])}>
+              <div
+                class="row-resize top"
+                use:resizable
+                on:resizing={(e) => r.i != 0 && (rows[r.i - 1] = { ...(rows[r.i - 1] || {}), height: getRowHeight(r.i - 1) + e.detail.y })} />
+              <div
+                class="row-resize bottom"
+                use:resizable
+                on:resizing={(e) => (rows[r.i] = { ...(rows[r.i] || {}), height: getRowHeight(r.i) + e.detail.y })} />
+              {r.i + 1}
+            </th>
             {#each visibleX as x, i}
-              {#if x.i == 0}
-                <td
-                  data-y={r.i}
-                  style="background-color: #f3f3f3; text-align: center;"
-                  class="jexcel_row">
-                  {r.i + 1}
-                </td>
-              {/if}
               <td
                 tabindex="-1"
                 data-x={x.i}
                 data-y={r.i}
                 data-merged={GetColSpan(mergeCells, x.i, r.i) || GetRowSpan(mergeCells, x.i, r.i)}
                 colspan={GetColSpan(mergeCells, x.i, r.i)}
+                class:selected={x.i >= topLeft.c && x.i < bottomRight.c && r.i >= topLeft.r && r.i < bottomRight.r}
                 on:dblclick={(_) => (edition = [x.i, r.i])}
-                class:highlight={selection && r.i >= selection[0][1] && selection[1][1] >= r.i && x.i >= selection[0][0] && selection[1][0] >= x.i}
-                class:highlight-top={selection && r.i == selection[0][1] && x.i >= selection[0][0] && selection[1][0] >= x.i}
-                class:highlight-bottom={selection && r.i == selection[1][1] && x.i >= selection[0][0] && selection[1][0] >= x.i}
-                class:highlight-left={selection && x.i == selection[0][0] && r.i >= selection[0][1] && selection[1][1] >= r.i}
-                class:highlight-right={selection && x.i == selection[1][0] && r.i >= selection[0][1] && selection[1][1] >= r.i}
                 class:readonly={columns[x.i] && columns[x.i].readOnly}
-                style={computeStyles(x.i, r.i, rows[r.i], style, config, data[r.i][x.i], data[r.i][x.i + 1])}>
+                style={computeStyles(x.i, r.i, rows[r.i], style, config, r.data && r.data[x.i], r.data && r.data[x.i + 1])}>
                 {#if String(edition) == String([x.i, r.i])}
                   <input
                     autofocus
-                    bind:value={data[r.i][x.i]}
-                    style={`width: ${columns[x.i].width || config.defaultColWidth}px; height: 22px; min-height: 22px;`} />
-                {:else}{data[r.i][x.i] || ''}{/if}
+                    on:input={(e) => onInputChange(e.target.value, r, x)}
+                    value={(data[r.i] && data[r.i][x.i]) || ''}
+                    style={`width: ${getColumnsWidth(x.i)}px; height: 22px; min-height: 22px;`} />
+                {:else}{(r.data && r.data[x.i]) || ''}{/if}
               </td>
             {/each}
           </tr>

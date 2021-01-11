@@ -1,6 +1,19 @@
 import XLSX from "xlsx";
 import btob from "b64-to-blob";
 
+function getRowHeight(row) {
+  try {
+    const height = Number(
+      typeof row?.height == "string"
+        ? row?.height?.replace("px", "")
+        : row?.height || 24 // consider adding a config.defaultRowHeight
+    );
+    return height > 24 ? height : 24;
+  } catch (e) {
+    return 24;
+  }
+}
+
 export const computeStyles = (c, r, row, style, options, value, nextValue) => {
   // ${
   //   c.wordWrap != false &&
@@ -9,7 +22,7 @@ export const computeStyles = (c, r, row, style, options, value, nextValue) => {
   //     : ""
   // }
   return `text-align: ${c.align || "center"}; 
-  ${row && row.height ? "height: " + row.height : "height: 24px"};
+  height: ${getRowHeight(row)}px;
   overflow: ${nextValue && nextValue.length ? "hidden" : "visible"};
   ${style[XLSX.utils.encode_cell({ c, r })]};
   `;
@@ -79,4 +92,88 @@ export async function upload(
     return res;
   }
   return [];
+}
+
+// Return bottomRight, and topLeft border for one selection
+function getBorder(
+  selection: XLSX.CellAddress[]
+): { tl: XLSX.CellAddress; br: XLSX.CellAddress } {
+  const br = {
+    c: selection[0].c > selection[1].c ? selection[0].c : selection[1].c,
+    r: selection[0].r > selection[1].r ? selection[0].r : selection[1].r,
+  };
+  const tl = {
+    c: selection[0].c < selection[1].c ? selection[0].c : selection[1].c,
+    r: selection[0].r < selection[1].r ? selection[0].r : selection[1].r,
+  };
+  return { tl, br };
+}
+
+export function removeColumns(
+  selection: XLSX.CellAddress[],
+  data: any[][]
+): any[][] {
+  const { tl, br } = getBorder(selection);
+  return data.map((d) => d.filter((_, i) => !(i >= tl.c && i <= br.c)));
+}
+
+export function removeRows(
+  selection: XLSX.CellAddress[],
+  data: any[][]
+): any[][] {
+  const { tl, br } = getBorder(selection);
+  return data.filter((d, i) => !(i >= tl.c && i <= br.c));
+}
+
+function decode(address: [string, string]): XLSX.CellAddress[] {
+  return [
+    XLSX.utils.decode_cell(address[0]),
+    XLSX.utils.decode_cell(address[1]),
+  ];
+}
+
+export function mergeSelectExtends(
+  data: any[][],
+  selected: [string, string],
+  extended: [string, string]
+): any[][] {
+  // merge logic here...
+  const sel = getBorder(decode(selected));
+  const ext = getBorder(decode(extended));
+  // if extended is inside selected
+  if (
+    ext.tl.c >= sel.tl.c &&
+    ext.br.c <= sel.br.c &&
+    ext.tl.r >= sel.tl.r &&
+    ext.tl.r <= sel.br.r
+  ) {
+    // every cells outside ext and inside sel are emptied
+    for (var c = sel.tl.c; c <= sel.br.c; c++) {
+      for (var r = sel.tl.r; r <= sel.br.r; r++) {
+        // if the cell is outside extended and inside selected erase it
+        if (c > ext.br.c || r > ext.br.r) {
+          data[r][c] = "";
+        }
+      }
+    }
+  } else {
+    console.log("outside");
+    // extended extend the selection
+    // for all cells outside selection
+    for (var c = ext.tl.c; c < ext.br.c; c++) {
+      for (var r = ext.tl.r; r <= ext.br.r; r++) {
+        const brsel = { c: sel.br.c + 1, r: sel.br.r + 1 };
+        const selwidth = brsel.c - sel.tl.c;
+        const selheight = brsel.r - sel.tl.r;
+        if (c < sel.tl.c) {
+          data[r][c] = data[r][sel.br.c - ((c - sel.tl.c) % selwidth)];
+          // cell is outside selected
+        }
+        if (c > sel.br.c) {
+          data[r][c] = data[r][sel.tl.c + ((c - sel.br.c) % selwidth)];
+        }
+      }
+    }
+  }
+  return data;
 }
