@@ -132,6 +132,28 @@ function decode(address: [string, string]): XLSX.CellAddress[] {
   ];
 }
 
+export function pasteSelection(
+  data,
+  pasted: [string, string],
+  selected: [string, string]
+) {
+  const dpaste = getBorder(decode(pasted));
+  const dselect = getBorder(decode(selected));
+  const dx = dselect.tl.c - dpaste.tl.c;
+  const dy = dselect.tl.r - dpaste.tl.r;
+  console.log(dx, dy);
+  for (var r = dpaste.tl.r; r <= dpaste.br.r; r++) {
+    for (var c = dpaste.tl.c; c <= dpaste.br.c; c++) {
+      console.log("iterate");
+      if (data.length - 1 < r + dy) {
+        data = [...data, Array.from({ length: r + dy - data.length + 1 })];
+      }
+      data[r + dy][c + dx] = data[r][c];
+    }
+  }
+  return data;
+}
+
 export function mergeSelectExtends(
   data: any[][],
   selected: [string, string],
@@ -145,7 +167,7 @@ export function mergeSelectExtends(
     ext.tl.c >= sel.tl.c &&
     ext.br.c <= sel.br.c &&
     ext.tl.r >= sel.tl.r &&
-    ext.tl.r <= sel.br.r
+    ext.br.r <= sel.br.r
   ) {
     // every cells outside ext and inside sel are emptied
     for (var c = sel.tl.c; c <= sel.br.c; c++) {
@@ -157,20 +179,34 @@ export function mergeSelectExtends(
       }
     }
   } else {
-    console.log("outside");
     // extended extend the selection
     // for all cells outside selection
-    for (var c = ext.tl.c; c < ext.br.c; c++) {
+    for (var c = ext.tl.c; c <= ext.br.c; c++) {
       for (var r = ext.tl.r; r <= ext.br.r; r++) {
         const brsel = { c: sel.br.c + 1, r: sel.br.r + 1 };
         const selwidth = brsel.c - sel.tl.c;
         const selheight = brsel.r - sel.tl.r;
         if (c < sel.tl.c) {
-          data[r][c] = data[r][sel.br.c - ((c - sel.tl.c) % selwidth)];
-          // cell is outside selected
+          // cell is on the left
+          data[r][c] =
+            data[r][sel.br.c - (Math.abs(c - sel.tl.c + 1) % selwidth)];
         }
         if (c > sel.br.c) {
-          data[r][c] = data[r][sel.tl.c + ((c - sel.br.c) % selwidth)];
+          // cell is on the right
+          data[r][c] = data[r][sel.tl.c + ((c - sel.br.c - 1) % selwidth)];
+        }
+        // if extended to unknown rows territory
+        if (data.length - 1 < r) {
+          data = [...data, Array.from({ length: r - data.length + 1 })];
+        }
+        if (r < sel.tl.r) {
+          // cell is on top
+          data[r][c] =
+            data[sel.br.r - (Math.abs(r - sel.tl.r + 1) % selheight)][c];
+        }
+        if (r > sel.br.r) {
+          // cell is below
+          data[r][c] = data[sel.tl.r + ((r - sel.br.r - 1) % selheight)][c];
         }
       }
     }

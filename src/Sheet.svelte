@@ -12,6 +12,7 @@
     GetColSpan,
     GetRowSpan,
     mergeSelectExtends,
+    pasteSelection,
   } from "./utilities";
 
   export let data: (string | number | boolean)[][] = [];
@@ -24,6 +25,7 @@
   export let style: { [cellIndex: string]: string } = {};
   export let selected: [string, string] = null; // either null, or coordinates [[x, y], [x, y]]
   export let extended: [string, string] = null;
+  export let currentValue: string | number | boolean = "";
   export let clipboard: any;
 
   export let options: Config;
@@ -42,11 +44,10 @@
     ...(options || {}),
   };
   // Containers
-  let history = [];
+  let history: string[] = [];
   let highlighted = [];
 
   // Internal controllers
-  let cmdz = false;
   let selection = false;
   let extension = false;
   let cursor = null;
@@ -112,6 +113,14 @@
   // whenever `items` changes, invalidate the current heightmap
   $: if (mounted) refresh(data, viewport_height, viewport_width);
 
+  $: {
+    try {
+      currentValue = data[decoded[0].r][decoded[0].c];
+    } catch (e) {
+      currentValue = "";
+    }
+  }
+
   function getColumnsWidth(i: number) {
     return Number(
       typeof columns[i]?.width == "string"
@@ -133,7 +142,7 @@
     }
   }
 
-  function onInputChange(value, row, column) {
+  export function onInputChange(value, row, column) {
     if (row.i > data.length - 1) {
       data = [
         ...data,
@@ -387,21 +396,43 @@
   }
 
   hotkeys("ctrl+z, command+z", function (e) {
-    console.log("undo");
     e.preventDefault();
-    cmdz = true;
+    window["cmdz"] = true;
     if (historyIndex == 0) return;
-    historyIndex = historyIndex - 1;
-    data = JSON.parse(history[historyIndex]);
+    historyIndex -= 1;
+    const res = JSON.parse(history[historyIndex]);
+    data = res.data;
+    columns = res.columns;
+    rows = res.rows;
+    style = res.style;
+    setTimeout((_) => (window["cmdz"] = false), 10);
   });
 
   hotkeys("ctrl+shift+z, command+shift+z", function (e) {
     console.log("redo");
     e.preventDefault();
-    cmdz = true;
+    window["cmdz"] = true;
     if (history.length - 1 == historyIndex) return;
     historyIndex = historyIndex + 1;
-    data = JSON.parse(history[historyIndex]);
+    const res = JSON.parse(history[historyIndex]);
+    data = res.data;
+    columns = res.columns;
+    rows = res.rows;
+    style = res.style;
+    setTimeout((_) => (window["cmdz"] = false), 10);
+  });
+
+  hotkeys("ctrl+c, command+c, ctrl+x, command+x", function (e) {
+    e.preventDefault();
+    console.log("copy");
+    clipboard = JSON.stringify(selected);
+  });
+
+  hotkeys("ctrl+v, command+v", function (e) {
+    e.preventDefault();
+    console.log("paste", clipboard);
+    if (!clipboard) return;
+    data = pasteSelection(data, JSON.parse(clipboard), selected);
   });
 
   function onKeyDown(e) {
@@ -596,16 +627,23 @@
     }
   }
   // history logic
-  let oldData = JSON.stringify(data);
   $: {
-    if (!cmdz) {
-      console.log("historyPush");
-      history = [...history.slice(0, historyIndex + 1), JSON.stringify(data)];
-      historyIndex = history.length;
+    if (!window["cmdz"]) {
+      const step = { data, rows, columns, style };
+      if (history[historyIndex] != JSON.stringify(step)) {
+        history = [...history.slice(0, historyIndex + 1), JSON.stringify(step)];
+        historyIndex = history.length - 1;
+      }
     }
-    cmdz = false;
+    // window["cmdz"] = false;
   }
-  // $: console.log("history length", history.length);
+  $: console.log(
+    "history length",
+    history.length,
+    "history index",
+    historyIndex,
+    history
+  );
 </script>
 
 <style>

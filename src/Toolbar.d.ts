@@ -1,16 +1,13 @@
-import { SvelteComponentTyped } from "svelte";
-export default class Toolbar extends SvelteComponentTyped<
-  ToolbarProps,
-  ToolbarEvents,
-  ToolbarSlots
-> {}
+import { SvelteComponentTyped } from 'svelte';
+export default class Toolbar extends SvelteComponentTyped<ToolbarProps, ToolbarEvents, ToolbarSlots> {
+}
 declare const _ToolbarProps: {
-  sheetNames: any;
-  sheets?: any[];
-  active?: number;
+    sheetNames: any;
+    sheets?: any[];
+    active?: number;
 };
 declare const _ToolbarEvents: {
-  [evt: string]: CustomEvent<any>;
+    [evt: string]: CustomEvent<any>;
 };
 declare const _ToolbarSlots: {};
 export declare type ToolbarProps = typeof _ToolbarProps;

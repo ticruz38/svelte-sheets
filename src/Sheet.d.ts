@@ -1,24 +1,27 @@
-import { SvelteComponentTyped } from "svelte";
+import { SvelteComponentTyped } from 'svelte';
 import type { Config } from "./defaultconfig";
-export default class Sheet extends SvelteComponentTyped<
-  SheetProps,
-  SheetEvents,
-  SheetSlots
-> {}
+export default class Sheet extends SvelteComponentTyped<SheetProps, SheetEvents, SheetSlots> {
+}
 declare const _SheetProps: {
-  data?: (string | number | boolean)[][];
-  columns?: any[];
-  mergeCells?: Record<string, number[]>;
-  style?: {
-    [cellIndex: string]: string;
-  };
-  selection?: [number[], number[]];
-  options: Config;
-  start?: number;
-  end?: number;
+    data?: (string | number | boolean)[][];
+    columns?: any[];
+    rows?: any[];
+    mergeCells?: Record<string, number[]>;
+    style?: {
+        [cellIndex: string]: string;
+    };
+    selected?: [string, string];
+    extended?: [string, string];
+    currentValue?: string | number | boolean;
+    clipboard: any;
+    options: Config;
+    startY?: number;
+    startX?: number;
+    endY?: number;
+    endX?: number;
 };
 declare const _SheetEvents: {
-  [evt: string]: CustomEvent<any>;
+    [evt: string]: CustomEvent<any>;
 };
 declare const _SheetSlots: {};
 export declare type SheetProps = typeof _SheetProps;

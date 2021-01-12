@@ -2,8 +2,10 @@ import { SvelteComponentTyped } from 'svelte';
 export default class Open extends SvelteComponentTyped<OpenProps, OpenEvents, OpenSlots> {
 }
 declare const _OpenProps: {
+    onload: (sheets: any[], sheetNames: any[]) => void;
     sheetNames: any;
     sheets?: any[];
+    open: any;
 };
 declare const _OpenEvents: {
     [evt: string]: CustomEvent<any>;
