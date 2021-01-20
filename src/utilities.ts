@@ -144,12 +144,43 @@ export function pasteSelection(
   console.log(dx, dy);
   for (var r = dpaste.tl.r; r <= dpaste.br.r; r++) {
     for (var c = dpaste.tl.c; c <= dpaste.br.c; c++) {
-      console.log("iterate");
       if (data.length - 1 < r + dy) {
         data = [...data, Array.from({ length: r + dy - data.length + 1 })];
       }
       data[r + dy][c + dx] = data[r][c];
     }
+  }
+  return data;
+}
+
+export function clearSelection(data, selected: [string, string]) {
+  console.log("clear");
+  const dselect = getBorder(decode(selected));
+  for (var r = dselect.tl.r; r <= dselect.br.r; r++) {
+    for (var c = dselect.tl.c; r <= dselect.br.c; c++) {
+      if (data.length - 1 < r) return;
+      data[r][c] = "";
+    }
+  }
+  return data;
+}
+
+export function deleteSelection(data, selected: [string, string]) {
+  const dselect = getBorder(decode(selected));
+  if (dselect.br.c == data[0].length - 1) {
+    // delete rows
+    data = data.filter((v, i) => {
+      return i < dselect.tl.r || i > dselect.br.r;
+    });
+  }
+  if (dselect.br.r == data.length - 1) {
+    // delete columns
+    console.log("delete columns");
+    data = data.map((c) =>
+      c.filter((v, i) => {
+        return i < dselect.tl.c || i > dselect.br.c;
+      })
+    );
   }
   return data;
 }

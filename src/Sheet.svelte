@@ -8,7 +8,9 @@
   import hotkeys from "hotkeys-js";
   import Menu from "./Menu.svelte";
   import {
+    clearSelection,
     computeStyles,
+    deleteSelection,
     GetColSpan,
     GetRowSpan,
     mergeSelectExtends,
@@ -26,7 +28,7 @@
   export let selected: [string, string] = null; // either null, or coordinates [[x, y], [x, y]]
   export let extended: [string, string] = null;
   export let currentValue: string | number | boolean = "";
-  export let clipboard: any;
+  export let clipboard: [string, string];
 
   export let options: Config;
 
@@ -48,6 +50,7 @@
   let highlighted = [];
 
   // Internal controllers
+  let cmdz = false;
   let selection = false;
   let extension = false;
   let cursor = null;
@@ -85,10 +88,10 @@
   let mounted;
   let top = 0;
   let left = 0;
-  let top_buffer = 500;
-  let bottom_buffer = 1000;
-  let left_buffer = 500;
-  let right_buffer = 1000;
+  let top_buffer = 2500;
+  let bottom_buffer = 2500;
+  let left_buffer = 2500;
+  let right_buffer = 2500;
   let bottom = 0;
   let right = 0;
   let average_height;
@@ -143,6 +146,7 @@
   }
 
   export function onInputChange(value, row, column) {
+    cmdz = true;
     if (row.i > data.length - 1) {
       data = [
         ...data,
@@ -306,12 +310,23 @@
   });
 
   function onMouseDown(e) {
+    // if right click
+    if (e.which == 3) return;
+    console.log("mousedown", e.which);
     if (e.target.id == "square") {
       extension = true;
       selection = false;
       return;
     }
-    if (!e.target.dataset.x) return;
+    if (!e.target.dataset.x || !e.target.dataset.y) return;
+    if (keypressed[16] && selected && selected[0]) {
+      edition = null;
+      selected = [
+        selected[0],
+        encode({ c: e.target.dataset.x, r: e.target.dataset.y }),
+      ];
+      return;
+    }
     edition = null;
     selection = true;
     selected = [
@@ -397,7 +412,7 @@
 
   hotkeys("ctrl+z, command+z", function (e) {
     e.preventDefault();
-    window["cmdz"] = true;
+    cmdz = true;
     if (historyIndex == 0) return;
     historyIndex -= 1;
     const res = JSON.parse(history[historyIndex]);
@@ -405,13 +420,13 @@
     columns = res.columns;
     rows = res.rows;
     style = res.style;
-    setTimeout((_) => (window["cmdz"] = false), 10);
+    setTimeout((_) => (cmdz = false), 10);
   });
 
   hotkeys("ctrl+shift+z, command+shift+z", function (e) {
     console.log("redo");
     e.preventDefault();
-    window["cmdz"] = true;
+    cmdz = true;
     if (history.length - 1 == historyIndex) return;
     historyIndex = historyIndex + 1;
     const res = JSON.parse(history[historyIndex]);
@@ -419,18 +434,16 @@
     columns = res.columns;
     rows = res.rows;
     style = res.style;
-    setTimeout((_) => (window["cmdz"] = false), 10);
+    setTimeout((_) => (cmdz = false), 10);
   });
 
   hotkeys("ctrl+c, command+c, ctrl+x, command+x", function (e) {
     e.preventDefault();
-    console.log("copy");
     clipboard = JSON.stringify(selected);
   });
 
   hotkeys("ctrl+v, command+v", function (e) {
     e.preventDefault();
-    console.log("paste", clipboard);
     if (!clipboard) return;
     data = pasteSelection(data, JSON.parse(clipboard), selected);
   });
@@ -478,9 +491,15 @@
     }
   }
 
+  let menuX;
+  let menuY;
   function showMenu(e) {
+    console.log("context", e);
     e.preventDefault();
-    console.log(e);
+    // e.stopImmediatePropagation();
+    e.stopPropagation();
+    menuX = e.screenX;
+    menuY = e.screenY - 70;
   }
   // initialize and refactor data
   $: (() => {
@@ -627,24 +646,199 @@
     }
   }
   // history logic
-  $: {
-    if (!window["cmdz"]) {
+
+  function historyPush(data, rows, columns, style) {
+    if (!cmdz) {
       const step = { data, rows, columns, style };
       if (history[historyIndex] != JSON.stringify(step)) {
         history = [...history.slice(0, historyIndex + 1), JSON.stringify(step)];
         historyIndex = history.length - 1;
       }
     }
-    // window["cmdz"] = false;
   }
-  $: console.log(
-    "history length",
-    history.length,
-    "history index",
-    historyIndex,
-    history
-  );
+  $: historyPush(data, rows, columns, style);
+
+  $: console.log(history);
 </script>
+
+<div
+  class="w-full sheet_container"
+  class:fullscreen={!!config.fullscreen}
+  class:with-toolbar={config.tableOverflow != true && config.toolbar}
+  on:contextmenu={(e) => showMenu(e)}
+  on:mousedown={onMouseDown}
+  on:mouseup={onMouseUp}
+  on:mouseover={onMouseOver}
+  tabindex="1">
+  <div
+    class="jexcel_content"
+    style={config.tableWidth ? 'overflow-x: auto; width: ' + config.tableWidth + ';' : '' + config.tableHeight ? 'overflow-y: auto; max-height: ' + config.tableHeight + ';' : ''}
+    bind:this={viewport}
+    bind:offsetHeight={viewport_height}
+    bind:offsetWidth={viewport_width}
+    on:scroll={handle_scroll}>
+    <table
+      cellpadding="0"
+      cellspacing="0"
+      unselectable={true}
+      on:click={(e) => (menuX = 0)}
+      style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
+      bind:this={contents}>
+      <div
+        class="top-extend absolute"
+        class:hidden={!extension}
+        bind:this={topextend} />
+      <div
+        class="bottom-extend absolute"
+        class:hidden={!extension}
+        bind:this={bottomextend} />
+      <div
+        class="left-extend absolute"
+        class:hidden={!extension}
+        bind:this={leftextend} />
+      <div
+        class="right-extend absolute"
+        class:hidden={!extension}
+        bind:this={rightextend} />
+      <div class="top-select absolute" bind:this={tops} />
+      <div class="bottom-select absolute" bind:this={bottoms} />
+      <div class="left-select absolute" bind:this={lefts} />
+      <div class="right-select absolute" bind:this={rights} />
+      <div class="col-line absolute" bind:this={colLine} />
+      <div class="row-line absolute" bind:this={rowLine} />
+      <div
+        tabindex={-1}
+        use:draggable
+        on:dragging={(e) => {
+          squareX = e.detail.x;
+          squareY = e.detail.y;
+        }}
+        class="square absolute"
+        id="square"
+        bind:this={square} />
+      <Menu
+        show={!!menuX}
+        x={menuX}
+        y={menuY}
+        copy={(e) => (clipboard = selected)}
+        cut={(e) => (clipboard = selected)}
+        paste={(e) => (data = pasteSelection(data, clipboard, selected))}
+        clear={(e) => (data = clearSelection(data, selected))}
+        delet={(e) => (data = deleteSelection(data, selected))} />
+      <colgroup>
+        <col width={50} />
+        {#each visibleX as v}
+          <col width={getColumnsWidth(v.i)} />
+        {/each}
+      </colgroup>
+      <thead
+        class:draggable={config.columnDrag || config.rowDrag}
+        class:resizable={config.columnResize || config.rowResize}
+        class="resizable">
+        <tr>
+          <th class="jexcel_selectall virtual-col" />
+          {#each visibleX as c, i}
+            <td
+              on:click={(_) => (selected = keypressed[16] && selected && selected[0] ? [encode(
+                          {
+                            c: decoded[0].c,
+                            r: 0,
+                          }
+                        ), encode({
+                          c: c.i,
+                          r: data.length - 1,
+                        })] : [encode({
+                          c: c.i,
+                          r: 0,
+                        }), encode({ c: c.i, r: data.length - 1 })])}
+              data-x={c.i}
+              title={c.data.title || ''}
+              class="virtual-col"
+              class:selected={selected && c.i >= topLeft.c && bottomRight.c - 1 >= c.i}
+              class:hidden={c.data.type == 'hidden'}
+              style={`text-align: ${c.data.align || config.defaultColAlign};`}>
+              {c.data.title || XLSX.utils.encode_col(c.i)}
+              <div
+                use:resizable
+                on:resizing={(e) => c.i != 0 && (columns[c.i - 1] = { ...(columns[c.i - 1] || {}), width: getColumnsWidth(c.i - 1) + e.detail.x })}
+                class="col-resize left" />
+              <div
+                class="col-resize right"
+                use:resizable
+                on:resizing={(e) => (columns[c.i] = { ...(columns[c.i] || {}), width: getColumnsWidth(c.i) + e.detail.x })} />
+            </td>
+          {/each}
+        </tr>
+      </thead>
+      <tbody class="draggable" bind:this={viewport} on:scroll={handle_scroll}>
+        {#each visibleY as r}
+          <tr
+            class="virtual-row"
+            data-y={r.i}
+            style={`height: ${getRowHeight(r.i)}px`}>
+            <th
+              data-y={r.i}
+              class:selected={selected && r.i >= topLeft.r && bottomRight.r - 1 >= r.i}
+              style={`background-color:
+              #f3f3f3;
+              text-align:
+              center;
+              height:
+              ${getRowHeight(r.i)}px;`}
+              on:click={(e) => (selected = keypressed[16] && selected && selected[0] ? [encode(
+                          {
+                            c: 0,
+                            r: decoded[0].r,
+                          }
+                        ), encode({
+                          c: data[0].length - 1,
+                          r: r.i,
+                        })] : [encode({
+                          c: 0,
+                          r: r.i,
+                        }), encode({ c: data[0].length - 1, r: r.i })])}>
+              <div
+                class="row-resize top"
+                use:resizable
+                on:resizing={(e) => r.i != 0 && (rows[r.i - 1] = { ...(rows[r.i - 1] || {}), height: getRowHeight(r.i - 1) + e.detail.y })} />
+              <div
+                class="row-resize bottom"
+                use:resizable
+                on:resizing={(e) => (rows[r.i] = { ...(rows[r.i] || {}), height: getRowHeight(r.i) + e.detail.y })} />
+              {r.i + 1}
+            </th>
+            {#each visibleX as x, i}
+              <td
+                tabindex="-1"
+                data-x={x.i}
+                data-y={r.i}
+                data-merged={GetColSpan(mergeCells, x.i, r.i) || GetRowSpan(mergeCells, x.i, r.i)}
+                colspan={GetColSpan(mergeCells, x.i, r.i)}
+                class:selected={x.i >= topLeft.c && x.i < bottomRight.c && r.i >= topLeft.r && r.i < bottomRight.r}
+                on:dblclick={(_) => (edition = [x.i, r.i])}
+                class:readonly={columns[x.i] && columns[x.i].readOnly}
+                style={computeStyles(x.i, r.i, rows[r.i], style, config, r.data && r.data[x.i], r.data && r.data[x.i + 1])}>
+                {#if String(edition) == String([x.i, r.i])}
+                  <input
+                    autofocus
+                    on:blur={(e) => {
+                      cmdz = false;
+                      historyPush(data, rows, columns, style);
+                    }}
+                    on:input={(e) => onInputChange(e.target.value, r, x)}
+                    value={(data[r.i] && data[r.i][x.i]) || ''}
+                    style={`width: ${getColumnsWidth(x.i)}px; height: ${getRowHeight(r.i)}px; min-height: 22px;`} />
+                {:else}{(r.data && r.data[x.i]) || ''}{/if}
+              </td>
+            {/each}
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
 
 <style>
   .sheet_container {
@@ -797,149 +991,3 @@
     transform: translate3D(-40%, -40%, 0);
   }
 </style>
-
-<div
-  class="w-full sheet_container"
-  class:fullscreen={!!config.fullscreen}
-  class:with-toolbar={config.tableOverflow != true && config.toolbar}
-  on:mousedown={onMouseDown}
-  on:mouseup={onMouseUp}
-  on:mouseover={onMouseOver}
-  tabindex="1">
-  <div
-    class="jexcel_content"
-    style={config.tableWidth ? 'overflow-x: auto; width: ' + config.tableWidth + ';' : '' + config.tableHeight ? 'overflow-y: auto; max-height: ' + config.tableHeight + ';' : ''}
-    bind:this={viewport}
-    bind:offsetHeight={viewport_height}
-    bind:offsetWidth={viewport_width}
-    on:scroll={handle_scroll}>
-    <table
-      cellpadding="0"
-      cellspacing="0"
-      unselectable={true}
-      style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
-      bind:this={contents}>
-      <div
-        class="top-extend absolute"
-        class:hidden={!extension}
-        bind:this={topextend} />
-      <div
-        class="bottom-extend absolute"
-        class:hidden={!extension}
-        bind:this={bottomextend} />
-      <div
-        class="left-extend absolute"
-        class:hidden={!extension}
-        bind:this={leftextend} />
-      <div
-        class="right-extend absolute"
-        class:hidden={!extension}
-        bind:this={rightextend} />
-      <div class="top-select absolute" bind:this={tops} />
-      <div class="bottom-select absolute" bind:this={bottoms} />
-      <div class="left-select absolute" bind:this={lefts} />
-      <div class="right-select absolute" bind:this={rights} />
-      <div class="col-line absolute" bind:this={colLine} />
-      <div class="row-line absolute" bind:this={rowLine} />
-      <div
-        use:draggable
-        on:dragging={(e) => {
-          squareX = e.detail.x;
-          squareY = e.detail.y;
-        }}
-        class="square absolute"
-        id="square"
-        bind:this={square} />
-      <Menu show={false} />
-      <colgroup>
-        <col width={50} />
-        {#each visibleX as v}
-          <col width={getColumnsWidth(v.i)} />
-        {/each}
-      </colgroup>
-      <thead
-        class:draggable={config.columnDrag || config.rowDrag}
-        class:resizable={config.columnResize || config.rowResize}
-        class="resizable">
-        <tr>
-          <th class="jexcel_selectall virtual-col" />
-          {#each visibleX as c, i}
-            <td
-              on:click={(_) => (selected = [encode({
-                    c: c.i,
-                    r: 0,
-                  }), encode({ c: c.i, r: data.length - 1 })])}
-              data-x={c.i}
-              title={c.data.title || ''}
-              class="virtual-col"
-              class:selected={selected && c.i >= topLeft.c && bottomRight.c - 1 >= c.i}
-              class:hidden={c.data.type == 'hidden'}
-              style={`text-align: ${c.data.align || config.defaultColAlign};`}>
-              {c.data.title || XLSX.utils.encode_col(c.i)}
-              <div
-                use:resizable
-                on:resizing={(e) => c.i != 0 && (columns[c.i - 1] = { ...(columns[c.i - 1] || {}), width: getColumnsWidth(c.i - 1) + e.detail.x })}
-                class="col-resize left" />
-              <div
-                class="col-resize right"
-                use:resizable
-                on:resizing={(e) => (columns[c.i] = { ...(columns[c.i] || {}), width: getColumnsWidth(c.i) + e.detail.x })} />
-            </td>
-          {/each}
-        </tr>
-      </thead>
-      <tbody class="draggable" bind:this={viewport} on:scroll={handle_scroll}>
-        {#each visibleY as r}
-          <tr
-            class="virtual-row"
-            data-y={r.i}
-            style={`height: ${getRowHeight(r.i)}px`}>
-            <th
-              data-y={r.i}
-              class:selected={selected && r.i >= topLeft.r && bottomRight.r - 1 >= r.i}
-              style={`background-color:
-              #f3f3f3;
-              text-align:
-              center;
-              height:
-              ${getRowHeight(r.i)}px;`}
-              on:click={(e) => (selected = [encode({
-                    c: 0,
-                    r: r.i,
-                  }), encode({ c: data[0].length - 1, r: r.i })])}>
-              <div
-                class="row-resize top"
-                use:resizable
-                on:resizing={(e) => r.i != 0 && (rows[r.i - 1] = { ...(rows[r.i - 1] || {}), height: getRowHeight(r.i - 1) + e.detail.y })} />
-              <div
-                class="row-resize bottom"
-                use:resizable
-                on:resizing={(e) => (rows[r.i] = { ...(rows[r.i] || {}), height: getRowHeight(r.i) + e.detail.y })} />
-              {r.i + 1}
-            </th>
-            {#each visibleX as x, i}
-              <td
-                tabindex="-1"
-                data-x={x.i}
-                data-y={r.i}
-                data-merged={GetColSpan(mergeCells, x.i, r.i) || GetRowSpan(mergeCells, x.i, r.i)}
-                colspan={GetColSpan(mergeCells, x.i, r.i)}
-                class:selected={x.i >= topLeft.c && x.i < bottomRight.c && r.i >= topLeft.r && r.i < bottomRight.r}
-                on:dblclick={(_) => (edition = [x.i, r.i])}
-                class:readonly={columns[x.i] && columns[x.i].readOnly}
-                style={computeStyles(x.i, r.i, rows[r.i], style, config, r.data && r.data[x.i], r.data && r.data[x.i + 1])}>
-                {#if String(edition) == String([x.i, r.i])}
-                  <input
-                    autofocus
-                    on:input={(e) => onInputChange(e.target.value, r, x)}
-                    value={(data[r.i] && data[r.i][x.i]) || ''}
-                    style={`width: ${getColumnsWidth(x.i)}px; height: 22px; min-height: 22px;`} />
-                {:else}{(r.data && r.data[x.i]) || ''}{/if}
-              </td>
-            {/each}
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-</div>

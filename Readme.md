@@ -85,11 +85,12 @@ Many of this options will be implemented later, so expect most of them to be unr
 
 ### Things yet to be done
 
-- Make a svelte REPL demonstrating the library
-- Undo/Redo (mapping keyboard shortcuts)
-- Resizing
+- Make a svelte REPL demonstrating the library (awaiting repl typescript support)
+- ✅ Undo/Redo (mapping keyboard shortcuts)
+- shift+click should extend the selection
+- ✅ Resizing rows/columns
 - Filtering
-- Copy/Paste
+- ✅ Copy/Paste
 - Comments on cells
 - Support more that number, string or boolean in cells. let's say charts, datepickers etc...
 - Implement a tooltip when right clicking a cell with a list of actions
