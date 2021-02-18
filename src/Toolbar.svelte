@@ -13,7 +13,7 @@
   $: files && files[0] && reader && reader.readAsArrayBuffer(files[0]);
 
   let reader;
-  if (process["browser"]) {
+  if (FileReader != undefined) {
     reader = new FileReader();
     reader.onload = () => {
       sheets = [];

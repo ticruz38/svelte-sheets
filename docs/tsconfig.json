@@ -1,5 +1,7 @@
 {
   // "include": ["src/**/*", "codegen.d.ts"],
+  "exclude": ["node_modules/*"],
+
   "compilerOptions": {
     "sourceMap": true,
     "target": "es6",
@@ -8,6 +10,8 @@
     "baseUrl": "./",
     // "checkJs": true,
     // "allowJs": true,
-    // "esModuleInterop": true
+    "types": ["svelte", "node"],
+    "typeRoots": ["typings"],
+    "esModuleInterop": true
   }
 }

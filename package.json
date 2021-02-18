@@ -5,7 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "build": "rollup -c",
+    "build:ts": "tsc index.ts && tsc src/**/*.ts",
     "dev": "rollup -c -w",
     "start": "sirv public",
     "validate": "svelte-check"
@@ -19,12 +19,18 @@
   "author": "Thibaut Duchêne",
   "license": "MIT",
   "devDependencies": {
+    "@sveltejs/kit": "^1.0.0-next.1",
     "svelte": "^3.0.0",
     "svelte-check": "^1.0.0",
     "svelte-preprocess": "^4.0.0",
     "svelte-types-writer": "^1.0.3",
     "tslib": "^2.0.0",
     "typescript": "^3.9.3"
+  },
+  "peerDependencies": {
+    "xlsx": "^0.16.9",
+    "b64-to-blob": "^1.2.19",
+    "hotkeys-js": "^3.8.1"
   },
   "dependencies": {
     "b64-to-blob": "^1.2.19",

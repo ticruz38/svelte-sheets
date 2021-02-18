@@ -1,4 +1,4 @@
-import XLSX from "xlsx";
+import * as XLSX from "xlsx";
 import btob from "b64-to-blob";
 
 function getRowHeight(row) {

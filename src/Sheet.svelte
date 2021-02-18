@@ -669,37 +669,48 @@
   on:mousedown={onMouseDown}
   on:mouseup={onMouseUp}
   on:mouseover={onMouseOver}
-  tabindex="1">
+  tabindex="1"
+>
   <div
     class="jexcel_content"
-    style={config.tableWidth ? 'overflow-x: auto; width: ' + config.tableWidth + ';' : '' + config.tableHeight ? 'overflow-y: auto; max-height: ' + config.tableHeight + ';' : ''}
+    style={config.tableWidth
+      ? "overflow-x: auto; width: " + config.tableWidth + ";"
+      : "" + config.tableHeight
+      ? "overflow-y: auto; max-height: " + config.tableHeight + ";"
+      : ""}
     bind:this={viewport}
     bind:offsetHeight={viewport_height}
     bind:offsetWidth={viewport_width}
-    on:scroll={handle_scroll}>
+    on:scroll={handle_scroll}
+  >
     <table
       cellpadding="0"
       cellspacing="0"
       unselectable={true}
       on:click={(e) => (menuX = 0)}
       style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
-      bind:this={contents}>
+      bind:this={contents}
+    >
       <div
         class="top-extend absolute"
         class:hidden={!extension}
-        bind:this={topextend} />
+        bind:this={topextend}
+      />
       <div
         class="bottom-extend absolute"
         class:hidden={!extension}
-        bind:this={bottomextend} />
+        bind:this={bottomextend}
+      />
       <div
         class="left-extend absolute"
         class:hidden={!extension}
-        bind:this={leftextend} />
+        bind:this={leftextend}
+      />
       <div
         class="right-extend absolute"
         class:hidden={!extension}
-        bind:this={rightextend} />
+        bind:this={rightextend}
+      />
       <div class="top-select absolute" bind:this={tops} />
       <div class="bottom-select absolute" bind:this={bottoms} />
       <div class="left-select absolute" bind:this={lefts} />
@@ -715,7 +726,8 @@
         }}
         class="square absolute"
         id="square"
-        bind:this={square} />
+        bind:this={square}
+      />
       <Menu
         show={!!menuX}
         x={menuX}
@@ -724,7 +736,8 @@
         cut={(e) => (clipboard = selected)}
         paste={(e) => (data = pasteSelection(data, clipboard, selected))}
         clear={(e) => (data = clearSelection(data, selected))}
-        delet={(e) => (data = deleteSelection(data, selected))} />
+        delet={(e) => (data = deleteSelection(data, selected))}
+      />
       <colgroup>
         <col width={50} />
         {#each visibleX as v}
@@ -734,38 +747,61 @@
       <thead
         class:draggable={config.columnDrag || config.rowDrag}
         class:resizable={config.columnResize || config.rowResize}
-        class="resizable">
+        class="resizable"
+      >
         <tr>
           <th class="jexcel_selectall virtual-col" />
           {#each visibleX as c, i}
             <td
-              on:click={(_) => (selected = keypressed[16] && selected && selected[0] ? [encode(
-                          {
-                            c: decoded[0].c,
-                            r: 0,
-                          }
-                        ), encode({
+              on:click={(_) =>
+                (selected =
+                  keypressed[16] && selected && selected[0]
+                    ? [
+                        encode({
+                          c: decoded[0].c,
+                          r: 0,
+                        }),
+                        encode({
                           c: c.i,
                           r: data.length - 1,
-                        })] : [encode({
+                        }),
+                      ]
+                    : [
+                        encode({
                           c: c.i,
                           r: 0,
-                        }), encode({ c: c.i, r: data.length - 1 })])}
+                        }),
+                        encode({ c: c.i, r: data.length - 1 }),
+                      ])}
               data-x={c.i}
-              title={c.data.title || ''}
+              title={c.data.title || ""}
               class="virtual-col"
-              class:selected={selected && c.i >= topLeft.c && bottomRight.c - 1 >= c.i}
-              class:hidden={c.data.type == 'hidden'}
-              style={`text-align: ${c.data.align || config.defaultColAlign};`}>
+              class:selected={selected &&
+                c.i >= topLeft.c &&
+                bottomRight.c - 1 >= c.i}
+              class:hidden={c.data.type == "hidden"}
+              style={`text-align: ${c.data.align || config.defaultColAlign};`}
+            >
               {c.data.title || XLSX.utils.encode_col(c.i)}
               <div
                 use:resizable
-                on:resizing={(e) => c.i != 0 && (columns[c.i - 1] = { ...(columns[c.i - 1] || {}), width: getColumnsWidth(c.i - 1) + e.detail.x })}
-                class="col-resize left" />
+                on:resizing={(e) =>
+                  c.i != 0 &&
+                  (columns[c.i - 1] = {
+                    ...(columns[c.i - 1] || {}),
+                    width: getColumnsWidth(c.i - 1) + e.detail.x,
+                  })}
+                class="col-resize left"
+              />
               <div
                 class="col-resize right"
                 use:resizable
-                on:resizing={(e) => (columns[c.i] = { ...(columns[c.i] || {}), width: getColumnsWidth(c.i) + e.detail.x })} />
+                on:resizing={(e) =>
+                  (columns[c.i] = {
+                    ...(columns[c.i] || {}),
+                    width: getColumnsWidth(c.i) + e.detail.x,
+                  })}
+              />
             </td>
           {/each}
         </tr>
@@ -775,36 +811,59 @@
           <tr
             class="virtual-row"
             data-y={r.i}
-            style={`height: ${getRowHeight(r.i)}px`}>
+            style={`height: ${getRowHeight(r.i)}px`}
+          >
             <th
               data-y={r.i}
-              class:selected={selected && r.i >= topLeft.r && bottomRight.r - 1 >= r.i}
+              class:selected={selected &&
+                r.i >= topLeft.r &&
+                bottomRight.r - 1 >= r.i}
               style={`background-color:
               #f3f3f3;
               text-align:
               center;
               height:
               ${getRowHeight(r.i)}px;`}
-              on:click={(e) => (selected = keypressed[16] && selected && selected[0] ? [encode(
-                          {
-                            c: 0,
-                            r: decoded[0].r,
-                          }
-                        ), encode({
+              on:click={(e) =>
+                (selected =
+                  keypressed[16] && selected && selected[0]
+                    ? [
+                        encode({
+                          c: 0,
+                          r: decoded[0].r,
+                        }),
+                        encode({
                           c: data[0].length - 1,
                           r: r.i,
-                        })] : [encode({
+                        }),
+                      ]
+                    : [
+                        encode({
                           c: 0,
                           r: r.i,
-                        }), encode({ c: data[0].length - 1, r: r.i })])}>
+                        }),
+                        encode({ c: data[0].length - 1, r: r.i }),
+                      ])}
+            >
               <div
                 class="row-resize top"
                 use:resizable
-                on:resizing={(e) => r.i != 0 && (rows[r.i - 1] = { ...(rows[r.i - 1] || {}), height: getRowHeight(r.i - 1) + e.detail.y })} />
+                on:resizing={(e) =>
+                  r.i != 0 &&
+                  (rows[r.i - 1] = {
+                    ...(rows[r.i - 1] || {}),
+                    height: getRowHeight(r.i - 1) + e.detail.y,
+                  })}
+              />
               <div
                 class="row-resize bottom"
                 use:resizable
-                on:resizing={(e) => (rows[r.i] = { ...(rows[r.i] || {}), height: getRowHeight(r.i) + e.detail.y })} />
+                on:resizing={(e) =>
+                  (rows[r.i] = {
+                    ...(rows[r.i] || {}),
+                    height: getRowHeight(r.i) + e.detail.y,
+                  })}
+              />
               {r.i + 1}
             </th>
             {#each visibleX as x, i}
@@ -812,12 +871,25 @@
                 tabindex="-1"
                 data-x={x.i}
                 data-y={r.i}
-                data-merged={GetColSpan(mergeCells, x.i, r.i) || GetRowSpan(mergeCells, x.i, r.i)}
+                data-merged={GetColSpan(mergeCells, x.i, r.i) ||
+                  GetRowSpan(mergeCells, x.i, r.i)}
                 colspan={GetColSpan(mergeCells, x.i, r.i)}
-                class:selected={x.i >= topLeft.c && x.i < bottomRight.c && r.i >= topLeft.r && r.i < bottomRight.r}
+                class:selected={x.i >= topLeft.c &&
+                  x.i < bottomRight.c &&
+                  r.i >= topLeft.r &&
+                  r.i < bottomRight.r}
                 on:dblclick={(_) => (edition = [x.i, r.i])}
                 class:readonly={columns[x.i] && columns[x.i].readOnly}
-                style={computeStyles(x.i, r.i, rows[r.i], style, config, r.data && r.data[x.i], r.data && r.data[x.i + 1])}>
+                style={computeStyles(
+                  x.i,
+                  r.i,
+                  rows[r.i],
+                  style,
+                  config,
+                  r.data && r.data[x.i],
+                  r.data && r.data[x.i + 1]
+                )}
+              >
                 {#if String(edition) == String([x.i, r.i])}
                   <input
                     autofocus
@@ -826,9 +898,12 @@
                       historyPush(data, rows, columns, style);
                     }}
                     on:input={(e) => onInputChange(e.target.value, r, x)}
-                    value={(data[r.i] && data[r.i][x.i]) || ''}
-                    style={`width: ${getColumnsWidth(x.i)}px; height: ${getRowHeight(r.i)}px; min-height: 22px;`} />
-                {:else}{(r.data && r.data[x.i]) || ''}{/if}
+                    value={(data[r.i] && data[r.i][x.i]) || ""}
+                    style={`width: ${getColumnsWidth(
+                      x.i
+                    )}px; height: ${getRowHeight(r.i)}px; min-height: 22px;`}
+                  />
+                {:else}{(r.data && r.data[x.i]) || ""}{/if}
               </td>
             {/each}
           </tr>
@@ -837,8 +912,6 @@
     </table>
   </div>
 </div>
-
-
 
 <style>
   .sheet_container {
