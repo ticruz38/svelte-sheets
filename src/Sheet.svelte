@@ -494,7 +494,6 @@
   let menuX;
   let menuY;
   function showMenu(e) {
-    console.log("context", e);
     e.preventDefault();
     // e.stopImmediatePropagation();
     e.stopPropagation();
@@ -656,9 +655,6 @@
       }
     }
   }
-  $: historyPush(data, rows, columns, style);
-
-  $: console.log(history);
 </script>
 
 <div
@@ -914,6 +910,12 @@
 </div>
 
 <style>
+  .jexcel_content {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-width: 100vw;
+    max-height: 100vh;
+  }
   .sheet_container {
     display: inline-block;
     padding-right: 2px;
