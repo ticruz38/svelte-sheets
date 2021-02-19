@@ -58,7 +58,7 @@ function getRowHeight(row) {
         return 24;
     }
 }
-var computeStyles = function (c, r, row, style, options, value, nextValue) {
+exports.computeStyles = function (c, r, row, style, options, value, nextValue) {
     // ${
     //   c.wordWrap != false &&
     //   (options.wordWrap || c.wordwrap || value?.length > 200)
@@ -67,7 +67,6 @@ var computeStyles = function (c, r, row, style, options, value, nextValue) {
     // }
     return "text-align: " + (c.align || "center") + "; \n  height: " + getRowHeight(row) + "px;\n  overflow: " + (nextValue && nextValue.length ? "hidden" : "visible") + ";\n  " + style[XLSX.utils.encode_cell({ c: c, r: r })] + ";\n  ";
 };
-exports.computeStyles = computeStyles;
 function GetCellByAddress(map, c, r) {
     return map[XLSX.utils.encode_cell({
         c: c,

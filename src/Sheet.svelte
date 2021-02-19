@@ -910,6 +910,18 @@
 </div>
 
 <style>
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: #e0e0e0;
+  }
+
+  :root {
+    tab-size: 4;
+  }
   .jexcel_content {
     overflow-x: auto;
     overflow-y: auto;
@@ -937,6 +949,7 @@
     border-left: 1px solid transparent;
     border-right: 1px solid #ccc;
     border-bottom: 1px solid #ccc;
+    text-indent: 0;
   }
   /* tr.selected {
     background-color: #b8e7e3;
@@ -958,6 +971,8 @@
   td {
     outline: none;
     cursor: default;
+    line-height: 14px;
+    font-size: 14px;
     border-top: 1px solid #ccc;
     border-left: 1px solid #ccc;
     border-right: 1px solid transparent;
@@ -987,6 +1002,7 @@
     border-right: 1px solid #ccc;
     z-index: 10;
     font-weight: normal;
+    height: 27px;
   }
 
   /* tbody > tr > td:first-child {
