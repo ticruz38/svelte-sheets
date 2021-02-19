@@ -27,17 +27,15 @@
   {/each}
 </div>
 
-<div style="height: 50vh;">
-  {#if sheet}
-    <Sheet
-      bind:data={sheet.data}
-      columns={sheet.columns}
-      rows={sheet.rows}
-      mergeCells={sheet.mergeCells || {}}
-      options={{ tableHeight: "90vh" }}
-      style={sheet.style || {}}
-      bind:currentValue
-      bind:selected
-    />
-  {/if}
-</div>
+{#if sheet}
+  <Sheet
+    bind:data={sheet.data}
+    columns={sheet.columns}
+    rows={sheet.rows}
+    mergeCells={sheet.mergeCells || {}}
+    options={{ tableHeight: "90vh" }}
+    style={sheet.style || {}}
+    bind:currentValue
+    bind:selected
+  />
+{/if}
