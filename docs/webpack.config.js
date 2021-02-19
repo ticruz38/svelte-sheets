@@ -1,3 +1,4 @@
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const path = require("path");
 
 const mode = process.env.NODE_ENV || "development";
@@ -52,6 +53,10 @@ module.exports = {
         },
       },
       {
+        test: /\.css$/,
+        use: [MiniCssExtractPlugin.loader, "css-loader"],
+      },
+      {
         // required to prevent errors from Svelte on Webpack 5+
         test: /node_modules\/svelte\/.*\.mjs$/,
         resolve: {
@@ -61,6 +66,11 @@ module.exports = {
     ],
   },
   mode,
+  plugins: [
+    new MiniCssExtractPlugin({
+      filename: "[name].css",
+    }),
+  ],
   devtool: prod ? false : "source-map",
   devServer: {
     hot: true,
