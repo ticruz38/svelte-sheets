@@ -1,11 +1,16 @@
 # Svelte Spreadsheets
 Ultra fast excel sheets in the browser. Hugely inspired by JExcel, built on XLSX shoulders.
 
+=> Find a live example [Here](https://ticruz38.github.io/svelte-sheets/) Open it in Chrome! I did not bother with postCSS. Code is in the docs foder
+
 ### Motivation
 Making excel sheets a reality in the browser can be incredibly difficult, keeping good performance while drawing and editing large amount of data in the DOM is the ultimate challenge for a web developper.
 The best implementation I could find was the awesome vanillajs [jexcel](https://github.com/jspreadsheet/jexcel) by Paul Hodel. <br/>
 However, opening really big spreadsheet would still block the JS thread for a minute or two.
 Following Rich Harris talk about reactivity, I decided to take the idea behind Jexcel and adapt it to Svelte, making use of a Virtual List to keep the DOM small and light at all times.
+
+### Known limitation
+You will need to have typescript svelte-preprocess enabled in your webpack/rollup configuration
 
 ### Installation
 
@@ -87,11 +92,11 @@ Many of this options will be implemented later, so expect most of them to be unr
 
 - Make a svelte REPL demonstrating the library (awaiting repl typescript support)
 - ✅ Undo/Redo (mapping keyboard shortcuts)
-- shift+click should extend the selection
+- ✅ shift+click should extend the selection
 - ✅ Resizing rows/columns
 - Filtering
 - ✅ Copy/Paste
 - Comments on cells
 - Support more that number, string or boolean in cells. let's say charts, datepickers etc...
-- Implement a tooltip when right clicking a cell with a list of actions
+- ✅ Implement a tooltip when right clicking a cell with a list of actions
 - All other excel features you can think of
