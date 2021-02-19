@@ -46,6 +46,10 @@
   />
 {/if}
 
+<a href="https://github.com/ticruz38/svelte-sheets" class="github-link">
+  <span />
+</a>
+
 <div class="sheet-names">
   {#each sheetNames as sn, i (sn)}
     <span class:selected={sheet.sheetName == sn} on:click={(_) => (active = i)}
@@ -61,6 +65,17 @@
     bottom: 0;
     width: 100%;
     padding: 1rem;
+  }
+  .github-link {
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    background-image: url("public/github.png");
+    height: 2rem;
+    width: 2rem;
+    background-position: center;
+    background-repeat: none;
+    background-size: cover;
   }
   .selected {
     text-decoration: underline;
