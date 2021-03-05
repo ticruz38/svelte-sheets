@@ -13,7 +13,7 @@
   $: files && files[0] && reader && reader.readAsArrayBuffer(files[0]);
 
   let reader;
-  if (FileReader != undefined) {
+  if (typeof FileReader != "undefined") {
     reader = new FileReader();
     reader.onload = () => {
       sheets = [];
@@ -29,6 +29,8 @@
   }
 </script>
 
+<input type="file" class="hidden" name="file" bind:this={open} bind:files />
+
 <style>
   .hidden {
     height: 0;
@@ -36,5 +38,3 @@
     opacity: 0;
   }
 </style>
-
-<input type="file" class="hidden" name="file" bind:this={open} bind:files />
