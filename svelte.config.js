@@ -13,8 +13,12 @@ const config = {
 	kit: {
 		adapter: adapter({
 				pages: "docs",
-				assets: "docs"
+				assets: "docs",
+
 		}),
+		prerender: {
+			default: true
+		},
 		paths: {
 				// change below to your repo name
 				base: dev ? "" : "/svelte-sheets",
