@@ -17,7 +17,7 @@ const config = {
 		}),
 		paths: {
 				// change below to your repo name
-				base: dev ? "" : "/ticruz38/svelte-sheets",
+				base: dev ? "" : "/svelte-sheets",
 		},
 }
 };
