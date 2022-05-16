@@ -4,12 +4,6 @@
   "description": "Run your excel sheet in the browser!",
   "main": "index.js",
   "types": "index.d.ts",
-  "scripts": {
-    "build": "svelte-kit build",
-    "dev": "svelte-kit dev",
-    "package": "svelte-kit package",
-    "preview": "svelte-kit preview"
-  },
   "keywords": [
     "svelte",
     "xlsx",
@@ -42,5 +36,23 @@
     "hotkeys-js": "^3.8.1",
     "xlsx": "^0.16.9"
   },
-  "type": "module"
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json",
+    "./Menu.svelte": "./Menu.svelte",
+    "./Open.svelte": "./Open.svelte",
+    "./Sheet.svelte": "./Sheet.svelte",
+    "./Toolbar.svelte": "./Toolbar.svelte",
+    "./actions/copypaste": "./actions/copypaste.js",
+    "./actions/draggable": "./actions/draggable.js",
+    "./actions": "./actions/index.js",
+    "./actions/resizable": "./actions/resizable.js",
+    "./actions/rightclick": "./actions/rightclick.js",
+    "./actions/selected": "./actions/selected.js",
+    "./convert": "./convert.js",
+    "./defaultconfig": "./defaultconfig.js",
+    ".": "./index.js",
+    "./utilities": "./utilities.js"
+  },
+  "svelte": "./index.js"
 }
