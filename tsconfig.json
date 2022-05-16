@@ -1,5 +1,5 @@
 {
-  // "include": ["src/**/*", "codegen.d.ts"],
+  "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
     "sourceMap": true,
     "target": "es6",
@@ -8,6 +8,8 @@
     "baseUrl": "./",
     // "checkJs": true,
     // "allowJs": true,
-    // "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+    "types": ["svelte"]
+  },
+  "exclude": ["node_modules", ".svelte-kit"]
 }
